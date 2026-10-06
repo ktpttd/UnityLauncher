@@ -1,0 +1,2 @@
+{ "success": false, "command": "projects list", "data": null,
+  "errors": [ { "code": "INVALID_COMMAND_ARGS", "message": "unknown command 'projects list'" } ], "warnings": [] }

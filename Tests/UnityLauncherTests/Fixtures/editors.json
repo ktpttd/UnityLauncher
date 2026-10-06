@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "command": "editors",
+  "data": [
+    { "version": "6000.3.16f1", "alias": "6.3.16f1", "architecture": "arm64",
+      "location": "/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app", "modules": "Android, iOS", "default": true },
+    { "version": "2022.3.62f3", "alias": "", "architecture": "arm64",
+      "location": "/Applications/Unity/Hub/Editor/2022.3.62f3/Unity.app", "modules": "", "default": false }
+  ],
+  "errors": [],
+  "warnings": []
+}

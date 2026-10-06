@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "command": "projects",
+  "data": [
+    { "title": "Capy_2D", "lastModified": 1791302245550, "path": "/Users/dev/Work/Capy_2D", "version": "6000.3.16f1",
+      "architecture": "arm64", "isFavorite": false, "vcsProvider": "github", "buildTarget": "iOS", "renderPipeline": "URP", "openInEditorUrl": "" },
+    { "title": "pa-spikes", "lastModified": 1791096125819, "path": "/Users/dev/Work/pa-spikes", "version": "2022.3.62f3",
+      "architecture": "arm64", "isFavorite": true, "buildTarget": "StandaloneOSX", "renderPipeline": "BUILT_IN" },
+    { "title": "Old", "path": "/Users/dev/Old Game", "version": "" }
+  ],
+  "errors": [],
+  "warnings": []
+}

@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "command": "releases",
+  "data": [
+    { "version": "7000.0.0a7", "architecture": "arm64", "stream": "ALPHA", "lts": false, "installed": false, "revisionHash": null },
+    { "version": "6000.3.16f1", "architecture": "arm64", "stream": "LTS", "lts": true, "installed": true, "revisionHash": "a56f230f6470" }
+  ],
+  "errors": [],
+  "warnings": ["── Showing 2 ─── Use --skip 2 to see more ──"]
+}
