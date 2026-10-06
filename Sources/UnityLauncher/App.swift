@@ -16,13 +16,16 @@ struct UnityLauncherApp: App {
 
 struct ContentView: View {
     @Environment(AppState.self) private var state
+    @AppStorage("selectedTab") private var tab = "projects"
 
     var body: some View {
         @Bindable var state = state
         VStack(spacing: 0) {
             if state.cli == nil { CLIMissingBanner() }
-            TabView {
-                ProjectsView().tabItem { Text("Projects") }
+            TabView(selection: $tab) {
+                ProjectsView().tabItem { Text("Projects") }.tag("projects")
+                EditorsView().tabItem { Text("Editors") }.tag("editors")
+                ReleasesView().tabItem { Text("Releases") }.tag("releases")
             }
         }
         .inspector(isPresented: $state.showTasks) {

@@ -70,6 +70,16 @@ struct UnityVersion: Comparable, Hashable, Sendable {
         (l.major, l.minor, l.patch, l.type, l.build) < (r.major, r.minor, r.patch, r.type, r.build)
     }
 
+    /// Unity's public release-notes page for a version.
+    static func releaseNotesURL(_ string: String) -> URL? {
+        guard let v = UnityVersion(string) else { return nil }
+        return switch v.type {
+        case "a": URL(string: "https://unity.com/releases/editor/alpha/\(string)")
+        case "b": URL(string: "https://unity.com/releases/editor/beta/\(string)")
+        default: URL(string: "https://unity.com/releases/editor/whats-new/\(v.major).\(v.minor).\(v.patch)")
+        }
+    }
+
     /// Sort predicate: newest first, unparseable versions last.
     static func newerFirst(_ a: String, _ b: String) -> Bool {
         switch (UnityVersion(a), UnityVersion(b)) {
@@ -87,4 +97,14 @@ struct UnityVersion: Comparable, Hashable, Sendable {
             .filter { current == nil || $0.1 > current! }
             .min { $0.1 < $1.1 }?.0
     }
+}
+
+struct ModuleInfo: Decodable, Identifiable, Hashable, Sendable {
+    let id: String
+    let name: String
+    let category: String?
+    let status: String
+    let download: String?
+
+    var isInstalled: Bool { status == "Installed" }
 }

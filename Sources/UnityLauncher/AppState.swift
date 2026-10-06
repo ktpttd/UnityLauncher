@@ -22,6 +22,9 @@ final class AppState {
     var info: InfoMessage?
     var tasks: [TaskItem] = []
     var showTasks = false
+    var releaseSearch = ""
+    var releaseStream = ReleaseStream.all
+    var releasesLoading = false
     private(set) var cli: UnityCLI?
 
     var showMissing: Bool {
