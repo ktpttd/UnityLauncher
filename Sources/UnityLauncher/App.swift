@@ -2,15 +2,58 @@ import SwiftUI
 
 @main
 struct UnityLauncherApp: App {
-    @State private var state = AppState()
+    @NSApplicationDelegateAdaptor private var delegate: AppDelegate
+    @AppStorage("showMenuBar") private var showMenuBar = true
 
     var body: some Scene {
+        let state = delegate.state
         Window("Unity Launcher", id: "main") {
             ContentView()
                 .environment(state)
                 .frame(minWidth: 820, minHeight: 420)
-                .task { await state.refresh() }
         }
+        .commands {
+            CommandMenu("Tools") {
+                ForEach(Local.Folder.allCases) { folder in
+                    Button(folder.rawValue) { Mac.open(folder.url) }
+                }
+                Divider()
+                Button("ADB Logcat (Unity)") { state.adbLogcat() }
+                Button("Unity Doctor") { Task { await state.doctor() } }
+            }
+        }
+        MenuBarExtra("Unity Launcher", systemImage: "cube", isInserted: $showMenuBar) {
+            MenuBarView().environment(state)
+        }
+        Settings {
+            SettingsView().environment(state)
+        }
+    }
+}
+
+/// Owns the app state so Finder / Dock / Services / command-line opens work before any window exists.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let state = AppState()
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.servicesProvider = self
+        NSUpdateDynamicServices()
+        Task {
+            if let path = Local.projectPath(fromArguments: CommandLine.arguments) { await state.openPath(path) }
+            await state.refresh()
+        }
+    }
+
+    /// Folders dropped on the Dock icon, "Open With", or `open -a UnityLauncher <folder>`.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        Task { for url in urls { await state.openPath(url.path) } }
+    }
+
+    /// Finder Services menu → "Open in Unity Launcher" (declared in Info.plist by scripts/bundle.sh).
+    @objc func openProject(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        let urls = pboard.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
+        application(NSApp, open: urls)
     }
 }
 
@@ -43,6 +86,18 @@ struct ContentView: View {
                 }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
             }
+        }
+        .sheet(item: $state.report) { report in
+            VStack(alignment: .leading) {
+                Text(report.title).font(.headline)
+                ScrollView {
+                    Text(report.message).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack { Spacer(); Button("Close") { state.report = nil }.keyboardShortcut(.defaultAction) }
+            }
+            .padding()
+            .frame(width: 560, height: 480)
         }
         .alert(state.info?.title ?? "", isPresented: .init(get: { state.info != nil }, set: { if !$0 { state.info = nil } })) {
             Button("OK") {}

@@ -70,6 +70,32 @@ enum Local {
         _ = Darwin.kill(pid, SIGKILL)
     }
 
+    // MARK: Finder / command-line integration
+
+    static func isUnityProject(_ url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.appendingPathComponent("ProjectSettings/ProjectVersion.txt").path)
+    }
+
+    /// ULP-compatible `-projectPath <path>`, or a bare argument that is a Unity project folder.
+    static func projectPath(fromArguments args: [String]) -> String? {
+        let rest = Array(args.dropFirst())
+        if let i = rest.firstIndex(where: { $0.caseInsensitiveCompare("-projectPath") == .orderedSame }), i + 1 < rest.count {
+            return rest[i + 1]
+        }
+        return rest.first { !$0.hasPrefix("-") && isUnityProject(URL(fileURLWithPath: $0)) }
+    }
+
+    /// Unity's bundled Android SDK adb (newest editor first), else a system adb.
+    static func adbPath(editorLocations: [String],
+                        fallbacks: [String] = ["~/Library/Android/sdk/platform-tools/adb", "/opt/homebrew/bin/adb", "/usr/local/bin/adb"]) -> String? {
+        let bundled = editorLocations.map {
+            URL(fileURLWithPath: $0).deletingLastPathComponent()
+                .appendingPathComponent("PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb").path
+        }
+        return (bundled + fallbacks.map { NSString(string: $0).expandingTildeInPath })
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
     // MARK: Project settings & player folders
 
     static func playerSettings(at project: URL) -> (company: String, product: String)? {

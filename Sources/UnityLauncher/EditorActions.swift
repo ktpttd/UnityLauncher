@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 enum ReleaseStream: String, CaseIterable, Identifiable {
     case all = "All", lts = "LTS", tech = "Tech", beta = "Beta", alpha = "Alpha"
@@ -30,5 +30,29 @@ extension AppState {
         guard let cli else { return [] }
         do { return try await cli.run(["modules", "list", version], as: [ModuleInfo].self) }
         catch { errorMessage = error.localizedDescription; return [] }
+    }
+}
+
+extension AppState {
+    func doctor() async {
+        guard let cli else { return }
+        await perform { report = InfoMessage(title: "Unity Doctor", message: try await cli.runPretty(["doctor"])) }
+    }
+
+    /// Opens Terminal with `adb logcat -s Unity` via a .command file (no Automation permission needed).
+    func adbLogcat() {
+        guard let adb = Local.adbPath(editorLocations: editors.map(\.location)) else {
+            errorMessage = "adb not found. Install Android Build Support for a Unity editor, or the Android SDK."
+            return
+        }
+        let script = FileManager.default.temporaryDirectory.appendingPathComponent("unity-logcat.command")
+        let quoted = "'" + adb.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        do {
+            try "#!/bin/sh\nexec \(quoted) logcat -s Unity\n".write(to: script, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+            NSWorkspace.shared.open(script)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }

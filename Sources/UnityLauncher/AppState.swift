@@ -20,6 +20,8 @@ final class AppState {
     /// Project whose required editor isn't installed — drives the "missing editor" alert.
     var missingEditorFor: ProjectRow?
     var info: InfoMessage?
+    /// Long monospaced report (Unity doctor) shown in a sheet.
+    var report: InfoMessage?
     var tasks: [TaskItem] = []
     var showTasks = false
     var releaseSearch = ""
@@ -52,6 +54,11 @@ final class AppState {
                 if (a.isFavorite ?? false) != (b.isFavorite ?? false) { return a.isFavorite ?? false }
                 return (a.lastModified ?? 0) > (b.lastModified ?? 0)
             }
+    }
+
+    /// Menu bar list: ten most recently modified projects that still exist.
+    var recentProjects: [ProjectRow] {
+        Array(projects.filter(\.exists).sorted { ($0.project.lastModified ?? 0) > ($1.project.lastModified ?? 0) }.prefix(10))
     }
 
     // MARK: Loading
@@ -104,6 +111,17 @@ final class AppState {
         }
         await perform { try await cli.runVoid(Self.openArguments(path: row.project.path, version: version)) }
         if UserDefaults.standard.bool(forKey: "hideAfterOpen") { NSApp.hide(nil) }
+    }
+
+    /// Open a folder handed to us by Finder, the Dock or the command line. The CLI resolves the version.
+    func openPath(_ path: String) async {
+        guard let cli else { return }
+        // Never hand an arbitrary folder to `unity open`; only real projects.
+        guard Local.isUnityProject(URL(fileURLWithPath: path)) else {
+            errorMessage = "\(path) is not a Unity project (no ProjectSettings/ProjectVersion.txt)."
+            return
+        }
+        await perform { try await cli.runVoid(Self.openArguments(path: path, version: nil)) }
     }
 
     func cliAction(_ args: [String]) async {

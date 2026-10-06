@@ -71,6 +71,18 @@ struct UnityCLI: Sendable {
 
     private struct Ignored: Decodable { init(from decoder: Decoder) {} }
 
+    /// The envelope's `data`, pretty-printed — for reports whose schema we don't model (doctor).
+    func runPretty(_ args: [String]) async throws -> String {
+        let (out, err, status) = try await execute(makeProcess(args, format: "json"))
+        let _: Envelope<Ignored> = try Self.decode(out, stderr: err, status: status)
+        guard let start = out.firstIndex(of: UInt8(ascii: "{")),
+              let object = try JSONSerialization.jsonObject(with: out[start...]) as? [String: Any],
+              let payload = object["data"], !(payload is NSNull)
+        else { return "" }
+        let pretty = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys, .fragmentsAllowed])
+        return String(decoding: pretty, as: UTF8.self)
+    }
+
     private func envelope<T: Decodable>(_ args: [String], as: T.Type) async throws -> Envelope<T> {
         let (out, err, status) = try await execute(makeProcess(args, format: "json"))
         return try Self.decode(out, stderr: err, status: status)
