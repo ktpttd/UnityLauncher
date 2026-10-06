@@ -70,6 +70,15 @@ struct UnityVersion: Comparable, Hashable, Sendable {
         (l.major, l.minor, l.patch, l.type, l.build) < (r.major, r.minor, r.patch, r.type, r.build)
     }
 
+    /// Sort predicate: newest first, unparseable versions last.
+    static func newerFirst(_ a: String, _ b: String) -> Bool {
+        switch (UnityVersion(a), UnityVersion(b)) {
+        case let (x?, y?): x > y
+        case (_?, nil): true
+        default: false
+        }
+    }
+
     /// Smallest installed version newer than `from` (ULP's "suggest next version" behaviour).
     static func suggestUpgrade(from: String, installed: [String]) -> String? {
         let current = UnityVersion(from)

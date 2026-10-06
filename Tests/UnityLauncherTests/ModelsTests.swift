@@ -56,6 +56,11 @@ func fixture(_ name: String) throws -> Data {
     #expect(UnityVersion("2019.4.40f1c1") == UnityVersion("2019.4.40f1"))
 }
 
+@Test func newerFirstPutsUnparseableLast() {
+    let sorted = ["2022.3.62f3", "", "6000.3.16f1", "weird"].sorted(by: UnityVersion.newerFirst)
+    #expect(Array(sorted.prefix(2)) == ["6000.3.16f1", "2022.3.62f3"])
+}
+
 @Test func suggestsNextInstalledVersion() {
     #expect(UnityVersion.suggestUpgrade(from: "2022.3.62f3", installed: ["6000.3.16f1", "2021.3.1f1", "6000.0.1f1"]) == "6000.0.1f1")
     #expect(UnityVersion.suggestUpgrade(from: "6000.3.16f1", installed: ["2022.3.62f3"]) == nil)
