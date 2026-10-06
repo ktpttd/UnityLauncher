@@ -80,10 +80,51 @@ struct BuildReport: Equatable {
     }
 }
 
+/// `unity-build.provenance.json`, written by `unity build` beside its output.
+struct BuildProvenance: Decodable {
+    struct Build: Decodable { let target: String?; let profile: String?; let outputPath: String?; let logFile: String? }
+    struct Source: Decodable { let revision: String?; let dirty: Bool? }
+    struct Editor: Decodable { let version: String? }
+    let outcome: String?
+    let startedAt: Date
+    let endedAt: Date
+    let build: Build
+    let source: Source?
+    let editor: Editor?
+
+    var duration: TimeInterval { endedAt.timeIntervalSince(startedAt) }
+
+    static func decode(_ data: Data) throws -> BuildProvenance {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { d in
+            try Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(d.singleValueContainer().decode(String.self))
+        }
+        return try decoder.decode(BuildProvenance.self, from: data)
+    }
+
+    /// The provenance whose build wrote `logFile`. Output sits at Builds/<target> or Builds/<target>/<file>,
+    /// so the manifest is one or two levels under Builds.
+    static func find(project: URL, logFile: URL) -> BuildProvenance? {
+        let fm = FileManager.default
+        let builds = project.appendingPathComponent("Builds")
+        let level1 = (try? fm.contentsOfDirectory(at: builds, includingPropertiesForKeys: nil)) ?? []
+        let level2 = level1.flatMap { (try? fm.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil)) ?? [] }
+        let wanted = logFile.resolvingSymlinksInPath().path
+        for dir in level1 + level2 {
+            let url = dir.appendingPathComponent("unity-build.provenance.json")
+            guard let data = try? Data(contentsOf: url), let p = try? decode(data), let log = p.build.logFile else { continue }
+            if project.appendingPathComponent(log).resolvingSymlinksInPath().path == wanted { return p }
+        }
+        return nil
+    }
+}
+
 struct BuildReportSheet: View {
     @Environment(\.dismiss) private var dismiss
     let row: ProjectRow
     @State private var found: BuildReport.Found?
+    @State private var provenance: BuildProvenance?
+    @State private var outputSize: Int64?
     @State private var loaded = false
     @State private var filter = ""
 
@@ -93,6 +134,31 @@ struct BuildReportSheet: View {
                 Text("Build Report — \(row.project.title)").font(.headline)
                 Spacer()
                 if let found { Button("Show Log") { Mac.reveal(found.source.path) } }
+            }
+            if let p = provenance {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 2) {
+                    GridRow {
+                        Text("Built").foregroundStyle(.secondary)
+                        Text("\(p.endedAt.formatted(date: .abbreviated, time: .shortened)), took \(formatDuration(p.duration))")
+                    }
+                    if let out = p.build.outputPath {
+                        GridRow {
+                            Text("Output").foregroundStyle(.secondary)
+                            HStack {
+                                Text(out + (outputSize.map { " — \(formatBytes($0))" } ?? ""))
+                                Button("Show") { Mac.reveal(row.project.path + "/" + out) }.controlSize(.small)
+                            }
+                        }
+                    }
+                    GridRow {
+                        Text("Source").foregroundStyle(.secondary)
+                        Text(["Unity \(p.editor?.version ?? "?")",
+                              p.source?.revision.map { "git \($0.prefix(7))" + (p.source?.dirty == true ? " (uncommitted changes)" : "") }]
+                            .compactMap { $0 }.joined(separator: " · "))
+                    }
+                }
+                .font(.callout)
+                Divider()
             }
             if let found {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 2) {
@@ -128,7 +194,15 @@ struct BuildReportSheet: View {
         .frame(width: 720, height: 560)
         .task {
             let project = URL(fileURLWithPath: row.project.path)
-            found = await Task.detached { BuildReport.latest(project: project) }.value
+            let (report, prov, size) = await Task.detached { () -> (BuildReport.Found?, BuildProvenance?, Int64?) in
+                let report = BuildReport.latest(project: project)
+                let prov = report.flatMap { BuildProvenance.find(project: project, logFile: $0.source) }
+                let size = prov?.build.outputPath.flatMap { Local.diskSize(project.appendingPathComponent($0)) }
+                return (report, prov, size)
+            }.value
+            found = report
+            provenance = prov
+            outputSize = size
             loaded = true
         }
     }

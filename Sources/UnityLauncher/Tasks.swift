@@ -10,7 +10,15 @@ final class TaskItem: Identifiable {
     let title: String
     var log: [String] = []
     var pct: Double?
-    var state: State = .running
+    var state: State = .running {
+        didSet { if state != .running, finishedAt == nil { finishedAt = Date() } }
+    }
+    let startedAt = Date()
+    var finishedAt: Date?
+    /// One-line result shown under the title, e.g. a build's output and size.
+    var summary: String?
+    /// Build output to reveal in Finder.
+    var output: URL?
     @ObservationIgnored var task: Task<Void, Never>?
 
     init(title: String) { self.title = title }
@@ -57,10 +65,27 @@ extension AppState {
             } catch {
                 if item.state == .running { item.state = .failed(error.localizedDescription) }
             }
+            if item.state == .succeeded, args.first == "build",
+               let i = args.firstIndex(of: "--output-path"), i + 1 < args.count {
+                let url = URL(fileURLWithPath: args[i + 1])
+                let size = await Task.detached { Local.diskSize(url) }.value
+                item.output = url
+                item.summary = "Output: \(url.lastPathComponent)" + (size.map { " · " + formatBytes($0) } ?? "")
+            }
             if refreshAfter { await refresh() }
         }
         return item
     }
+}
+
+/// "5s", "1m 39s", "1h 2m 5s".
+func formatDuration(_ seconds: TimeInterval) -> String {
+    let s = Int(seconds.rounded()), h = s / 3600, m = s % 3600 / 60, sec = s % 60
+    return h > 0 ? "\(h)h \(m)m \(sec)s" : m > 0 ? "\(m)m \(sec)s" : "\(sec)s"
+}
+
+func formatBytes(_ bytes: Int64) -> String {
+    ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
 }
 
 struct ProjectSize: Decodable {

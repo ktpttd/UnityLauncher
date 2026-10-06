@@ -108,6 +108,23 @@ enum Local {
         return found.sorted { $0.profile.localizedCaseInsensitiveCompare($1.profile) == .orderedAscending }
     }
 
+    /// Total size of a file, or of every file inside a folder/bundle. nil if it doesn't exist.
+    static func diskSize(_ url: URL) -> Int64? {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { return nil }
+        guard isDir.boolValue else {
+            return (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init)
+        }
+        guard let walker = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]) else { return 0 }
+        var total: Int64 = 0
+        for case let file as URL in walker {
+            if let v = try? file.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]), v.isRegularFile == true {
+                total += Int64(v.fileSize ?? 0)
+            }
+        }
+        return total
+    }
+
     /// ULP-compatible `-projectPath <path>`, or a bare argument that is a Unity project folder.
     static func projectPath(fromArguments args: [String]) -> String? {
         let rest = Array(args.dropFirst())

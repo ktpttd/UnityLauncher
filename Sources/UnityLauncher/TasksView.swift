@@ -37,6 +37,23 @@ private struct TaskRow: View {
                 Spacer()
                 if item.state == .running { Button("Stop") { item.stop() }.controlSize(.small) }
             }
+            Group {
+                if item.state == .running {
+                    Text(item.startedAt, style: .timer).monospacedDigit()
+                } else if let end = item.finishedAt {
+                    let took = formatDuration(end.timeIntervalSince(item.startedAt))
+                    Text(item.state == .succeeded ? "Done in \(took)" : "Ended after \(took)")
+                }
+            }
+            .font(.caption).foregroundStyle(.secondary)
+            if let summary = item.summary {
+                HStack {
+                    Text(summary).font(.callout.weight(.semibold)).textSelection(.enabled)
+                    if let output = item.output {
+                        Button("Show") { Mac.reveal(output.path) }.controlSize(.small)
+                    }
+                }
+            }
             if item.state == .running {
                 if let pct = item.pct { ProgressView(value: min(pct, 100), total: 100) }
                 else { ProgressView().progressViewStyle(.linear) }
