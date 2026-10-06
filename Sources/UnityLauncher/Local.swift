@@ -2,7 +2,9 @@ import Foundation
 
 struct UnityProcess: Hashable, Sendable {
     let pid: Int32
-    let projectPath: String
+    /// Everything after `-projectPath `. ps prints argv unquoted, so the path's end is ambiguous;
+    /// callers match it against known project paths.
+    let argsTail: String
 }
 
 /// Things the Unity CLI doesn't cover: git branch, running editors, well-known folders.
@@ -47,9 +49,7 @@ enum Local {
             guard line.contains("Unity.app/Contents/MacOS/Unity"),
                   let space = line.firstIndex(of: " "), let pid = Int32(line[..<space]),
                   let flag = line.range(of: "-projectpath ", options: .caseInsensitive) else { return nil }
-            let rest = line[flag.upperBound...]
-            let value = rest.range(of: " -").map { rest[..<$0.lowerBound] } ?? rest
-            return UnityProcess(pid: pid, projectPath: value.trimmingCharacters(in: .whitespaces))
+            return UnityProcess(pid: pid, argsTail: line[flag.upperBound...].trimmingCharacters(in: .whitespaces))
         }
     }
 

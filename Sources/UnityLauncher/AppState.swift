@@ -77,14 +77,22 @@ final class AppState {
     }
 
     nonisolated static func rows(for projects: [Project], running: [UnityProcess]) -> [ProjectRow] {
-        func norm(_ p: String) -> String { URL(fileURLWithPath: p).standardizedFileURL.path }
-        let pids = Dictionary(running.map { (norm($0.projectPath), $0.pid) }, uniquingKeysWith: { a, _ in a })
+        func norm(_ p: String) -> String { URL(fileURLWithPath: p).standardizedFileURL.path.lowercased() }
+        // Each process belongs to the longest known project path its args start with, so
+        // "/Work/MyGame - Backup -useHub" never matches "/Work/MyGame".
+        var pids: [String: Int32] = [:]
+        for proc in running {
+            let tail = proc.argsTail.lowercased()
+            let owner = projects.map(\.path)
+                .filter { path in [norm(path), norm(path) + "/"].contains { tail == $0 || tail.hasPrefix($0 + " ") } }
+                .max { norm($0).count < norm($1).count }
+            if let owner { pids[owner] = proc.pid }
+        }
         return projects.map { p in
-            let url = URL(fileURLWithPath: p.path)
-            return ProjectRow(project: p,
-                              exists: FileManager.default.fileExists(atPath: p.path),
-                              branch: Local.gitBranch(at: url),
-                              pid: pids[norm(p.path)])
+            ProjectRow(project: p,
+                       exists: FileManager.default.fileExists(atPath: p.path),
+                       branch: Local.gitBranch(at: URL(fileURLWithPath: p.path)),
+                       pid: pids[p.path])
         }
     }
 

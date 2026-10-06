@@ -45,6 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        state.stopServers()
+    }
+
     /// Folders dropped on the Dock icon, "Open With", or `open -a UnityLauncher <folder>`.
     func application(_ application: NSApplication, open urls: [URL]) {
         Task { for url in urls { await state.openPath(url.path) } }

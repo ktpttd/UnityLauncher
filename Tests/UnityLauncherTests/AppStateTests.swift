@@ -45,6 +45,15 @@ func row(_ title: String, path: String? = nil, modified: Double, pinned: Bool = 
 
 @Test func matchesRunningProcessIgnoringTrailingSlash() {
     let rows = AppState.rows(for: [row("A", path: "/Work/A", modified: 1).project],
-                             running: [UnityProcess(pid: 42, projectPath: "/Work/A/")])
+                             running: [UnityProcess(pid: 42, argsTail: "/Work/A/ -useHub")])
     #expect(rows.first?.pid == 42)
+}
+
+/// ps prints argv unquoted, so a path containing " -" must not be mistaken for a shorter project path.
+@Test func runningProcessMatchesLongestKnownProjectPath() {
+    let projects = [row("Game", path: "/Work/MyGame", modified: 1).project,
+                    row("Backup", path: "/Work/MyGame - Backup", modified: 2).project]
+    let rows = AppState.rows(for: projects, running: [UnityProcess(pid: 7, argsTail: "/Work/MyGame - Backup -useHub -hubIPC")])
+    #expect(rows.first { $0.project.title == "Game" }?.pid == nil)
+    #expect(rows.first { $0.project.title == "Backup" }?.pid == 7)
 }

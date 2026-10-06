@@ -55,7 +55,7 @@ func write(_ text: String, to url: URL) throws {
     """
     let result = Local.parseUnityProcesses(ps)
     #expect(result.map(\.pid) == [123, 789])
-    #expect(result.map(\.projectPath) == ["/Users/dev/My Game", "/Users/dev/pa-spikes"])
+    #expect(result.map(\.argsTail) == ["/Users/dev/My Game -useHub -hubIPC", "/Users/dev/pa-spikes"])
 }
 
 @Test func readsPlayerSettings() throws {

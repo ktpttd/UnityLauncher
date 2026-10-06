@@ -74,3 +74,16 @@ func frame(_ json: String) -> Frame { try! JSONDecoder().decode(Frame.self, from
     #expect(BuildTarget.windows.defaultOutput(project: "/p", product: "Game") == "/p/Builds/StandaloneWindows64/Game.exe")
     #expect(BuildTarget.linux.defaultOutput(project: "/p", product: "Game") == "/p/Builds/StandaloneLinux64/Game.x86_64")
 }
+
+@MainActor @Test func stopServersEndsLongRunningProcessesOnly() async throws {
+    let state = AppState(cli: try fakeCLI("sleep 30"))
+    state.runServer("WebGL", ["build", "run", "/p"])
+    let server = try #require(state.tasks.first)
+    let install = TaskItem(title: "Install")
+    state.tasks.append(install)
+    state.stopServers()
+    #expect(server.state == .failed("Stopped"))
+    #expect(install.state == .running)
+    server.process?.waitUntilExit()
+    #expect(server.process?.isRunning == false)
+}
