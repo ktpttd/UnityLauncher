@@ -19,6 +19,9 @@ final class AppState {
     var errorMessage: String?
     /// Project whose required editor isn't installed — drives the "missing editor" alert.
     var missingEditorFor: ProjectRow?
+    var info: InfoMessage?
+    var tasks: [TaskItem] = []
+    var showTasks = false
     private(set) var cli: UnityCLI?
 
     var showMissing: Bool {

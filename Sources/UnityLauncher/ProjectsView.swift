@@ -7,6 +7,8 @@ struct ProjectsView: View {
     @State private var argsText = ""
     @State private var confirmKill: ProjectRow?
     @State private var confirmRemove: ProjectRow?
+    @State private var confirmClean: ProjectRow?
+    @State private var sheet: ProjectSheet?
 
     private var selected: ProjectRow? { state.projects.first { $0.id == selection } }
 
@@ -60,12 +62,29 @@ struct ProjectsView: View {
                 Button("Kill Unity", systemImage: "xmark.octagon") { confirmKill = selected }
                     .disabled(selected?.pid == nil)
                     .keyboardShortcut("q", modifiers: .option)
+                Button("New Project", systemImage: "doc.badge.plus") { sheet = .newProject }
+                    .keyboardShortcut("n")
+                    .disabled(state.editors.isEmpty)
                 Button("Add Project", systemImage: "plus") {
                     if let url = Mac.chooseFolder(message: "Choose a Unity project folder") {
                         Task { await state.cliAction(["projects", "add", url.path]) }
                     }
                 }
             }
+        }
+        .sheet(item: $sheet) { sheet in
+            switch sheet {
+            case .newProject: NewProjectSheet()
+            case .upgrade(let row): UpgradeSheet(row: row)
+            case .build(let row): BuildSheet(row: row)
+            }
+        }
+        .confirmationDialog("Delete Library, Temp and Logs of \(confirmClean?.project.title ?? "")?", isPresented: .init(get: { confirmClean != nil }, set: { if !$0 { confirmClean = nil } })) {
+            Button("Clean", role: .destructive) {
+                if let row = confirmClean { state.runTask("Clean \(row.project.title)", ["projects", "clean", row.project.path, "--yes"]) }
+            }
+        } message: {
+            Text("Unity regenerates them on next open (slow first import). The CLI refuses while the project is open.")
         }
         .alert("Arguments for \(editingArgs?.project.title ?? "")", isPresented: .init(get: { editingArgs != nil }, set: { if !$0 { editingArgs = nil } })) {
             TextField("-logFile out.log", text: $argsText)
@@ -86,6 +105,11 @@ struct ProjectsView: View {
         }
     }
 
+    private func runTests(_ row: ProjectRow, mode: String) {
+        let out = FileManager.default.temporaryDirectory.appendingPathComponent("\(row.project.title)-\(mode)-results.xml").path
+        state.runTask("\(mode) tests: \(row.project.title)", ["test", row.project.path, "--mode", mode, "--output", out], refreshAfter: false)
+    }
+
     @ViewBuilder
     private func menu(for row: ProjectRow) -> some View {
         let path = row.project.path
@@ -101,6 +125,29 @@ struct ProjectsView: View {
             Button("Reveal in Finder") { Mac.reveal(path) }
             Button("Open in Terminal") { Mac.openInTerminal(path) }
             Button("Edit Packages (manifest.json)") { Mac.reveal(path + "/Packages/manifest.json") }
+            Divider()
+            Button("Upgrade…") { sheet = .upgrade(row) }
+            Button("Build…") { sheet = .build(row) }
+            Button("Run WebGL Build…") {
+                if let url = Mac.chooseFolder(message: "Choose the WebGL build folder (contains index.html)") {
+                    state.runServer("WebGL: \(row.project.title)", ["build", "run", path, "--path", url.path])
+                }
+            }
+            Menu("Run Tests") {
+                Button("EditMode") { runTests(row, mode: "EditMode") }
+                Button("PlayMode") { runTests(row, mode: "PlayMode") }
+            }
+            Menu("Logs & Data") {
+                Button("Editor.log") { Mac.reveal(Local.Folder.editorLogs.url.appendingPathComponent("Editor.log").path) }
+                Button("Player.log") { let p = state.player(row); Mac.open(Local.playerLogURL(company: p.company, product: p.product).deletingLastPathComponent()) }
+                Button("Persistent Data Path") { let p = state.player(row); Mac.open(Local.persistentDataURL(company: p.company, product: p.product)) }
+                Button("Project Logs Folder") { Mac.open(URL(fileURLWithPath: path + "/Logs")) }
+            }
+            Menu("Maintenance") {
+                Button("Disk Usage") { Task { await state.showSize(row) } }
+                Button("Verify Project") { state.runTask("Verify \(row.project.title)", ["projects", "verify", path], refreshAfter: false) }
+                Button("Clean Library…") { confirmClean = row }
+            }
         }
         Button("Copy Path") { Mac.copy(path) }
         Button("Copy Version") { Mac.copy(row.project.version) }

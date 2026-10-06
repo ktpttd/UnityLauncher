@@ -23,6 +23,10 @@ struct Frame: Decodable, Sendable {
     let pct: Double?
     let success: Bool?
     let errors: [CLIErrorItem]?
+    // `projects verify` finding frames
+    let code: String?
+    let severity: String?
+    let path: String?
 }
 
 /// Thin wrapper over the `unity` binary. Every call is `unity --no-banner --non-interactive --format <fmt> <args>`.

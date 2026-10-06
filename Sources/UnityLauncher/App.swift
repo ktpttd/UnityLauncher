@@ -18,11 +18,15 @@ struct ContentView: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
+        @Bindable var state = state
         VStack(spacing: 0) {
             if state.cli == nil { CLIMissingBanner() }
             TabView {
                 ProjectsView().tabItem { Text("Projects") }
             }
+        }
+        .inspector(isPresented: $state.showTasks) {
+            TasksView().inspectorColumnWidth(min: 260, ideal: 320)
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -30,6 +34,17 @@ struct ContentView: View {
                     .keyboardShortcut("r")
                     .disabled(state.isLoading)
             }
+            ToolbarItem(placement: .primaryAction) {
+                Button("Tasks", systemImage: state.tasks.contains { $0.state == .running } ? "list.bullet.circle.fill" : "list.bullet.circle") {
+                    state.showTasks.toggle()
+                }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+            }
+        }
+        .alert(state.info?.title ?? "", isPresented: .init(get: { state.info != nil }, set: { if !$0 { state.info = nil } })) {
+            Button("OK") {}
+        } message: {
+            Text(state.info?.message ?? "")
         }
         .alert("Error", isPresented: .init(get: { state.errorMessage != nil }, set: { if !$0 { state.errorMessage = nil } })) {
             Button("OK") {}
@@ -39,11 +54,14 @@ struct ContentView: View {
         .alert("Unity \(state.missingEditorFor?.project.version ?? "") is not installed",
                isPresented: .init(get: { state.missingEditorFor != nil }, set: { if !$0 { state.missingEditorFor = nil } })) {
             if let row = state.missingEditorFor {
+                Button("Install \(row.project.version)") { state.installEditor(row.project.version) }
                 ForEach(state.editors.prefix(4)) { e in
                     Button("Open with \(e.version)") { Task { await state.open(row, version: e.version) } }
                 }
             }
             Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Install it (accepts the Unity Editor EULA) or open with another installed version.")
         }
     }
 }
