@@ -81,3 +81,12 @@ func write(_ text: String, to url: URL) throws {
     ProjectPrefs.setArgs("", for: path)
     #expect(ProjectPrefs.args(for: path) == "")
 }
+
+/// Import workers are child processes with the same -projectPath; Kill must target the main editor.
+@Test func ignoresAssetImportWorkers() {
+    let ps = """
+    18825 /Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity -projectpath /Users/dev/Capy -useHub
+    18939 /Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity -adb2 -batchMode -noUpm -name AssetImportWorker0 -projectPath /Users/dev/Capy -logFile Logs/AssetImportWorker0.log
+    """
+    #expect(Local.parseUnityProcesses(ps).map(\.pid) == [18825])
+}

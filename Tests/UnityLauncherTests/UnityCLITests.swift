@@ -72,6 +72,15 @@ func fakeCLI(_ body: String) throws -> UnityCLI {
     #expect(last?.message == "ndjson")
 }
 
+/// `unity open` prints nothing on success, even with --format json.
+@Test func silentSuccessIsSuccessForRunVoidOnly() async throws {
+    let cli = try fakeCLI("exit 0")
+    try await cli.runVoid(["open", "/p"])
+    await #expect(throws: CLIError.badOutput("missing data")) {
+        try await cli.run(["projects", "list"], as: [Int].self)
+    }
+}
+
 @Test func runVoidAcceptsNullData() async throws {
     try await fakeCLI(#"echo '{"success":true,"data":null,"errors":[],"warnings":[]}'"#).runVoid(["projects", "pin", "/p"])
     await #expect(throws: CLIError.failed(code: "NOPE", message: "no")) {

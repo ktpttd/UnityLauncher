@@ -91,6 +91,8 @@ struct UnityCLI: Sendable {
     static func decode<T: Decodable>(_ out: Data, stderr: Data, status: Int32) throws -> Envelope<T> {
         // Tolerate stray notices before the JSON document.
         guard let start = out.firstIndex(of: UInt8(ascii: "{")) else {
+            // Some commands (`open`) print nothing on success, even under --format json.
+            if status == 0 { return Envelope(success: true, data: nil, errors: [], warnings: []) }
             throw CLIError.exited(status, String(decoding: stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
         }
         let env: Envelope<T>

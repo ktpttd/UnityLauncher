@@ -47,6 +47,7 @@ enum Local {
         psOutput.split(separator: "\n").compactMap { raw in
             let line = raw.trimmingCharacters(in: .whitespaces)
             guard line.contains("Unity.app/Contents/MacOS/Unity"),
+                  !line.contains("AssetImportWorker"), // child workers share -projectPath with the editor
                   let space = line.firstIndex(of: " "), let pid = Int32(line[..<space]),
                   let flag = line.range(of: "-projectpath ", options: .caseInsensitive) else { return nil }
             return UnityProcess(pid: pid, argsTail: line[flag.upperBound...].trimmingCharacters(in: .whitespaces))

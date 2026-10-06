@@ -171,6 +171,13 @@ enum Mac {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
+    static func chooseApp(message: String) -> URL? {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.message = message
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+
     static func chooseFolder(message: String) -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true

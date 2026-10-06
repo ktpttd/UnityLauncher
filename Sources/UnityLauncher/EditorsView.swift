@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct EditorsView: View {
     @Environment(AppState.self) private var state
@@ -24,18 +23,6 @@ struct EditorsView: View {
             if let e = state.editors.first(where: { ids.contains($0.id) }) { menu(for: e) }
         } primaryAction: { ids in
             if let e = state.editors.first(where: { ids.contains($0.id) }) { NSWorkspace.shared.open(URL(fileURLWithPath: e.location)) }
-        }
-        .toolbar {
-            ToolbarItem {
-                Button("Locate Editor", systemImage: "plus") {
-                    let panel = NSOpenPanel()
-                    panel.allowedContentTypes = [.application]
-                    panel.message = "Choose a Unity.app to register"
-                    if panel.runModal() == .OK, let url = panel.url {
-                        Task { await state.cliAction(["editors", "add", url.path]) }
-                    }
-                }
-            }
         }
         .sheet(item: $modulesFor) { ModulesSheet(editor: $0) }
         .confirmationDialog("Uninstall Unity \(confirmUninstall?.version ?? "")?", isPresented: .init(get: { confirmUninstall != nil }, set: { if !$0 { confirmUninstall = nil } })) {

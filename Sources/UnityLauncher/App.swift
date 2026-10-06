@@ -18,6 +18,11 @@ struct UnityLauncherApp: App {
                     Button(folder.rawValue) { Mac.open(folder.url) }
                 }
                 Divider()
+                Button("Locate Unity Editor…") {
+                    if let url = Mac.chooseApp(message: "Choose a Unity.app to register") {
+                        Task { await state.cliAction(["editors", "add", url.path]) }
+                    }
+                }
                 Button("ADB Logcat (Unity)") { state.adbLogcat() }
                 Button("Unity Doctor") { Task { await state.doctor() } }
             }
