@@ -94,10 +94,35 @@ func frame(_ json: String) -> Frame { try! JSONDecoder().decode(Frame.self, from
             == ["build", "/p", "--output-path", "/o", "--profile", "Assets/Settings/Build Profiles/iOS.asset", "--allow-dirty-build"])
 }
 
-@MainActor @Test func loadsBuildProfilesFromCLI() async throws {
-    let state = AppState(cli: try fakeCLI(#"echo '{"success":true,"data":[{"profile":"iOS","path":"Assets/Settings/Build Profiles/iOS.asset"}],"errors":[],"warnings":[]}'"#))
-    let profiles = await state.buildProfiles(project: "/p")
-    #expect(profiles == [BuildProfile(profile: "iOS", path: "Assets/Settings/Build Profiles/iOS.asset")])
+func profileAsset(name: String, target: Int) -> String {
+    """
+    %YAML 1.1
+    --- !u!114 &11400000
+    MonoBehaviour:
+      m_Script: {fileID: 15003, guid: 0000000000000000e000000000000000, type: 0}
+      m_Name: \(name)
+      m_EditorClassIdentifier: UnityEditor.dll::UnityEditor.Build.Profile.BuildProfile
+      m_AssetVersion: 1
+      m_BuildTarget: \(target)
+    """
+}
+
+/// `unity build --list-profiles` only scans "Assets/Settings/Build Profiles"; real projects keep them elsewhere.
+@Test func scansBuildProfilesAnywhereInAssets() throws {
+    let project = try unityProject()
+    try write(profileAsset(name: "iOS_DEV", target: 9), to: project.appendingPathComponent("Assets/Settings/BuildProfiles/iOS_DEV.asset"))
+    try write(profileAsset(name: "Android", target: 13), to: project.appendingPathComponent("Assets/Settings/Build Profiles/Android.asset"))
+    try write(profileAsset(name: "Quest", target: 999), to: project.appendingPathComponent("Assets/XR/Quest.asset"))
+    try write("%YAML 1.1\nMonoBehaviour:\n  m_Name: Settings\n  m_EditorClassIdentifier: Game::Settings\n",
+              to: project.appendingPathComponent("Assets/Settings/GameSettings.asset"))
+    let profiles = Local.buildProfiles(in: project)
+    #expect(profiles.map(\.profile) == ["Android", "iOS_DEV", "Quest"])
+    #expect(profiles.map(\.path) == ["Assets/Settings/Build Profiles/Android.asset", "Assets/Settings/BuildProfiles/iOS_DEV.asset", "Assets/XR/Quest.asset"])
+    #expect(profiles.map(\.target) == [.android, .iOS, nil])
+}
+
+@Test func mapsUnityBuildTargetIDs() {
+    #expect([2, 9, 13, 19, 20, 24, 5].map(BuildTarget.init(unityID:)) == [.macOS, .iOS, .android, .windows, .webGL, .linux, nil])
 }
 
 /// `unity build` progress frames use "msg", not "message" (seen on a real iOS build).
@@ -107,4 +132,20 @@ func frame(_ json: String) -> Frame { try! JSONDecoder().decode(Frame.self, from
     item.apply(frame(#"{"type":"progress","pct":100,"msg":"Build complete"}"#))
     #expect(item.log == ["Starting build (iOS)...", "Build complete"])
     #expect(item.pct == 100)
+}
+
+/// Profiles saved by older Unity 6 versions leave m_EditorClassIdentifier empty (seen in a real project).
+@Test func detectsProfilesWithEmptyClassIdentifier() throws {
+    let project = try unityProject()
+    try write("""
+    %YAML 1.1
+    --- !u!114 &11400000
+    MonoBehaviour:
+      m_Script: {fileID: 15003, guid: 0000000000000000e000000000000000, type: 0}
+      m_Name: iOS_DEV
+      m_EditorClassIdentifier: 
+      m_AssetVersion: 1
+      m_BuildTarget: 9
+    """, to: project.appendingPathComponent("Assets/Settings/BuildProfiles/iOS_DEV.asset"))
+    #expect(Local.buildProfiles(in: project).map(\.profile) == ["iOS_DEV"])
 }

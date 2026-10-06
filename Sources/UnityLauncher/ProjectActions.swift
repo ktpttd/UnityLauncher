@@ -20,8 +20,8 @@ extension AppState {
     }
 
     func buildProfiles(project: String) async -> [BuildProfile] {
-        guard let cli else { return [] }
-        return (try? await cli.run(["build", project, "--list-profiles"], as: [BuildProfile].self)) ?? []
+        let url = URL(fileURLWithPath: project)
+        return await Task.detached { Local.buildProfiles(in: url) }.value
     }
 
     /// Company / product from ProjectSettings, falling back to Unity's defaults.
@@ -30,11 +30,13 @@ extension AppState {
     }
 }
 
-/// `unity build --list-profiles` row (Unity 6+ Build Profile asset).
-struct BuildProfile: Decodable, Hashable, Identifiable {
+/// A Unity 6+ Build Profile asset. `path` is project-relative, as `unity build --profile` takes it.
+struct BuildProfile: Hashable, Identifiable {
     var id: String { path }
     let profile: String
     let path: String
+    /// nil for platforms the Build sheet doesn't list (consoles, XR…).
+    let target: BuildTarget?
 }
 
 enum ProjectSheet: Identifiable {
@@ -139,12 +141,18 @@ struct BuildSheet: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     let row: ProjectRow
-    @State private var target = BuildTarget.macOS
+    @State private var target: BuildTarget
     @State private var profiles: [BuildProfile] = []
     @State private var profile = ""
     @State private var output = ""
     @State private var allowDirty = false
     @State private var creatingProfile = false
+
+    init(row: ProjectRow) {
+        self.row = row
+        // Start on the project's active platform (from the Hub/CLI), e.g. iOS for a mobile game.
+        _target = State(initialValue: row.project.buildTarget.flatMap(BuildTarget.init(rawValue:)) ?? .macOS)
+    }
 
     private var isUnity6: Bool { (UnityVersion(row.project.version)?.major ?? 0) >= 6000 }
     /// Batch builds can't open a project the Editor already has open.
@@ -155,20 +163,22 @@ struct BuildSheet: View {
             Picker("Target", selection: $target) {
                 ForEach(BuildTarget.allCases) { Text($0.label).tag($0) }
             }
-            if target.needsProfile {
-                if isUnity6 {
-                    Picker("Build Profile", selection: $profile) {
-                        if profiles.isEmpty { Text("None in project").tag("") }
-                        ForEach(profiles) { Text($0.profile).tag($0.path) }
+            if isUnity6 {
+                Picker("Build Profile", selection: $profile) {
+                    Text(target.needsProfile ? "Choose a profile" : "None (plain \(target.label) build)").tag("")
+                    ForEach(profiles) { p in
+                        Text("\(p.profile) · \(p.target?.label ?? "Other")").tag(p.path)
                     }
+                }
+                if target.needsProfile, !profiles.contains(where: { $0.target == target }) {
                     Button(creatingProfile ? "Creating \(target.label) profile…" : "Create \(target.label) Profile") {
                         createProfile()
                     }
                     .disabled(creatingProfile || isOpen)
-                } else {
-                    Text("\(target.label) builds need a Unity 6 Build Profile. This project uses \(row.project.version).")
-                        .foregroundStyle(.secondary)
                 }
+            } else if target.needsProfile {
+                Text("\(target.label) builds need a Unity 6 Build Profile. This project uses \(row.project.version).")
+                    .foregroundStyle(.secondary)
             }
             TextField("Output", text: $output)
             Toggle("Allow uncommitted changes", isOn: $allowDirty)
@@ -182,6 +192,14 @@ struct BuildSheet: View {
         .frame(width: 520)
         .onChange(of: target, initial: true) {
             output = target.defaultOutput(project: row.project.path, product: state.player(row).product)
+            // Keep the profile only if it builds this target.
+            if let current = profiles.first(where: { $0.path == profile }), current.target != target {
+                profile = profiles.first { $0.target == target }?.path ?? ""
+            }
+        }
+        .onChange(of: profile) {
+            // A profile decides its platform.
+            if let t = profiles.first(where: { $0.path == profile })?.target, t != target { target = t }
         }
         .task { await loadProfiles() }
         .toolbar {
@@ -189,9 +207,10 @@ struct BuildSheet: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Build") {
                     let args = BuildTarget.arguments(project: row.project.path, target: target,
-                                                     profile: target.needsProfile ? profile : nil,
+                                                     profile: profile.isEmpty ? nil : profile,
                                                      output: output, allowDirty: allowDirty)
-                    state.runTask("Build \(row.project.title) (\(target.label))", args)
+                    let what = profiles.first { $0.path == profile }?.profile ?? target.label
+                    state.runTask("Build \(row.project.title) (\(what))", args)
                     dismiss()
                 }
                 .disabled(output.isEmpty || isOpen || (target.needsProfile && profile.isEmpty))
@@ -202,8 +221,8 @@ struct BuildSheet: View {
     private func loadProfiles() async {
         guard isUnity6 else { return }
         profiles = await state.buildProfiles(project: row.project.path)
-        if !profiles.contains(where: { $0.path == profile }) {
-            profile = profiles.first { $0.profile.localizedCaseInsensitiveContains(target.label) }?.path ?? profiles.first?.path ?? ""
+        if target.needsProfile, !profiles.contains(where: { $0.path == profile }) {
+            profile = profiles.first { $0.target == target }?.path ?? ""
         }
     }
 

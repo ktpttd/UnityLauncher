@@ -83,6 +83,31 @@ enum Local {
         return manifest?.contains("\"com.unity.pipeline\"") ?? false
     }
 
+    /// Build Profile assets anywhere under Assets. (`unity build --list-profiles` only looks in
+    /// "Assets/Settings/Build Profiles", but Unity lets them live anywhere.)
+    static func buildProfiles(in project: URL) -> [BuildProfile] {
+        let assets = project.appendingPathComponent("Assets")
+        let keys: [URLResourceKey] = [.fileSizeKey, .isRegularFileKey]
+        guard let walker = FileManager.default.enumerator(at: assets, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else { return [] }
+        var found: [BuildProfile] = []
+        for case let url as URL in walker where url.pathExtension == "asset" {
+            // Profiles are small YAML files; skip big binary assets without reading them.
+            guard let v = try? url.resourceValues(forKeys: Set(keys)), v.isRegularFile == true, (v.fileSize ?? 0) < 512_000,
+                  let handle = try? FileHandle(forReadingFrom: url) else { continue }
+            let head = String(decoding: (try? handle.read(upToCount: 4096)) ?? Data(), as: UTF8.self)
+            try? handle.close()
+            // BuildProfile is built-in class 15003 of UnityEditor.dll; older saves leave the class identifier empty.
+            let isProfile = head.contains("UnityEditor.Build.Profile.BuildProfile")
+                || head.contains("fileID: 15003, guid: 0000000000000000e000000000000000")
+            guard isProfile, head.contains("m_BuildTarget:"),
+                  let name = head.firstMatch(of: /m_Name: (.+)/)?.1 else { continue }
+            let target = head.firstMatch(of: /m_BuildTarget: (\d+)/).flatMap { Int($0.1) }.flatMap(BuildTarget.init(unityID:))
+            let relative = "Assets" + url.standardizedFileURL.path.dropFirst(assets.standardizedFileURL.path.count)
+            found.append(BuildProfile(profile: String(name).trimmingCharacters(in: .whitespaces), path: relative, target: target))
+        }
+        return found.sorted { $0.profile.localizedCaseInsensitiveCompare($1.profile) == .orderedAscending }
+    }
+
     /// ULP-compatible `-projectPath <path>`, or a bare argument that is a Unity project folder.
     static func projectPath(fromArguments args: [String]) -> String? {
         let rest = Array(args.dropFirst())

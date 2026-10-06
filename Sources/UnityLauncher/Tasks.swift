@@ -87,6 +87,20 @@ enum BuildTarget: String, CaseIterable, Identifiable {
     case iOS, android = "Android", webGL = "WebGL"
 
     var id: String { rawValue }
+
+    /// Unity's `BuildTarget` enum value, as stored in a Build Profile's `m_BuildTarget`.
+    init?(unityID: Int) {
+        switch unityID {
+        case 2: self = .macOS
+        case 9: self = .iOS
+        case 13: self = .android
+        case 19: self = .windows
+        case 20: self = .webGL
+        case 24: self = .linux
+        default: return nil
+        }
+    }
+
     var label: String {
         switch self {
         case .macOS: "macOS"; case .windows: "Windows"; case .linux: "Linux"
