@@ -147,6 +147,12 @@ struct BuildSheet: View {
     @State private var output = ""
     @State private var allowDirty = false
     @State private var creatingProfile = false
+    @State private var signing: AndroidSigning?
+    // Kept only while the sheet is open; never written anywhere.
+    @State private var keystorePassword = ""
+    @State private var aliasPassword = ""
+
+    private var needsPassword: Bool { target == .android && signing?.custom == true }
 
     init(row: ProjectRow) {
         self.row = row
@@ -182,6 +188,17 @@ struct BuildSheet: View {
             }
             TextField("Output", text: $output)
             Toggle("Allow uncommitted changes", isOn: $allowDirty)
+            if needsPassword, let s = signing {
+                LabeledContent("Keystore") {
+                    Text(s.keystore.path.replacingOccurrences(of: row.project.path + "/", with: "") + " · alias \(s.alias)")
+                        .foregroundStyle(FileManager.default.fileExists(atPath: s.keystore.path) ? Color.secondary : Color.red)
+                        .lineLimit(1).truncationMode(.middle)
+                }
+                SecureField("Keystore password", text: $keystorePassword)
+                SecureField("Alias password (if different)", text: $aliasPassword)
+                Text("Passwords go to the Unity CLI as arguments for this build only and are not saved. Other apps running as you can see process arguments while it builds.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             if isOpen {
                 Label("Unity has this project open. Close it first: a batch build can't open the same project.",
                       systemImage: "exclamationmark.triangle.fill")
@@ -202,18 +219,31 @@ struct BuildSheet: View {
             if let t = profiles.first(where: { $0.path == profile })?.target, t != target { target = t }
         }
         .task { await loadProfiles() }
+        .task(id: "\(target.rawValue)|\(profile)") {
+            let project = URL(fileURLWithPath: row.project.path), chosen = profile.isEmpty ? nil : profile
+            signing = target == .android ? await Task.detached { Local.androidSigning(project: project, profile: chosen) }.value : nil
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Build") {
+                    var keys: AndroidSigningArgs?
+                    if needsPassword, let s = signing {
+                        guard let data = try? Data(contentsOf: s.keystore) else {
+                            state.errorMessage = "Can't read keystore \(s.keystore.path)."
+                            return
+                        }
+                        keys = AndroidSigningArgs(keystoreBase64: data.base64EncodedString(), password: keystorePassword,
+                                                  alias: s.alias, aliasPassword: aliasPassword)
+                    }
                     let args = BuildTarget.arguments(project: row.project.path, target: target,
                                                      profile: profile.isEmpty ? nil : profile,
-                                                     output: output, allowDirty: allowDirty)
+                                                     output: output, allowDirty: allowDirty, signing: keys)
                     let what = profiles.first { $0.path == profile }?.profile ?? target.label
                     state.runTask("Build \(row.project.title) (\(what))", args)
                     dismiss()
                 }
-                .disabled(output.isEmpty || isOpen || (target.needsProfile && profile.isEmpty))
+                .disabled(output.isEmpty || isOpen || (target.needsProfile && profile.isEmpty) || (needsPassword && keystorePassword.isEmpty))
             }
         }
     }

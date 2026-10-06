@@ -47,10 +47,11 @@ UNITY_INTEGRATION=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swi
 - Double-click or ⏎ opens a project with its own Unity version. If that version isn't installed, the app offers to install it or open with another version.
 - Context menu:
   - Open With, per-project launch arguments, Reveal in Finder, Open in Terminal, Edit `manifest.json`
-  - Upgrade, Build (macOS, Windows, Linux; iOS, Android, WebGL via a Unity 6 Build Profile, created from the sheet), Build Report (largest assets of the last build), EditMode/PlayMode tests
+  - Upgrade, Build (macOS, Windows, Linux; iOS, Android, WebGL via a Unity 6 Build Profile, created from the sheet), Build Report (time, output size, largest assets of the last build), EditMode/PlayMode tests
   - Editor.log, Player.log, Persistent Data, the project's Logs folder
   - Disk usage, Verify (meta/GUID/merge-marker checks), Clean Library
   - Pin/Unpin, Kill Unity (⌥Q), Remove from list
+- Android release builds: the Build sheet reads the keystore and alias from the chosen Build Profile (or Player Settings) and asks for the passwords. Passwords are passed to `unity build` for that build only and never saved.
 - New Project (⌘N) with Unity version and template. Add a project with + or by dragging folders onto the list.
 
 **Editors tab**

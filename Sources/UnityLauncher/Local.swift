@@ -1,5 +1,11 @@
 import Foundation
 
+struct AndroidSigning: Equatable {
+    let keystore: URL
+    let alias: String
+    let custom: Bool
+}
+
 struct UnityProcess: Hashable, Sendable {
     let pid: Int32
     /// Everything after `-projectPath `. ps prints argv unquoted, so the path's end is ambiguous;
@@ -123,6 +129,30 @@ enum Local {
             }
         }
         return total
+    }
+
+    /// Android keystore + alias a build will sign with: the Build Profile's override if it has one,
+    /// else Player Settings. `custom == false` means Unity's debug keystore (no password needed).
+    static func androidSigning(project: URL, profile: String?) -> AndroidSigning? {
+        func read(_ relative: String) -> String {
+            (try? String(contentsOf: project.appendingPathComponent(relative), encoding: .utf8)) ?? ""
+        }
+        let sources = [profile.map(read) ?? "", read("ProjectSettings/ProjectSettings.asset")]
+        func value(_ key: String) -> String? {
+            for text in sources {
+                // Profile overrides look like  - line: '|   Key: ''value'''  and Player Settings like  Key: 'value'
+                if let m = text.firstMatch(of: try! Regex<(Substring, Substring)>("\(key): (.*)")) {
+                    return m.output.1.trimmingCharacters(in: CharacterSet(charactersIn: "' "))
+                }
+            }
+            return nil
+        }
+        guard let name = value("AndroidKeystoreName"), !name.isEmpty else { return nil }
+        let keystore = name.hasPrefix("{inproject}: ")
+            ? project.appendingPathComponent(String(name.dropFirst("{inproject}: ".count)))
+            : URL(fileURLWithPath: NSString(string: name).expandingTildeInPath)
+        return AndroidSigning(keystore: keystore, alias: value("AndroidKeyaliasName") ?? "",
+                              custom: value("androidUseCustomKeystore") == "1")
     }
 
     /// ULP-compatible `-projectPath <path>`, or a bare argument that is a Unity project folder.
