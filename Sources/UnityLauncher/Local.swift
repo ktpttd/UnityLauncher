@@ -77,6 +77,12 @@ enum Local {
         FileManager.default.fileExists(atPath: url.appendingPathComponent("ProjectSettings/ProjectVersion.txt").path)
     }
 
+    /// Live control needs the `com.unity.pipeline` package in the project's manifest.
+    static func hasPipeline(_ project: URL) -> Bool {
+        let manifest = try? String(contentsOf: project.appendingPathComponent("Packages/manifest.json"), encoding: .utf8)
+        return manifest?.contains("\"com.unity.pipeline\"") ?? false
+    }
+
     /// ULP-compatible `-projectPath <path>`, or a bare argument that is a Unity project folder.
     static func projectPath(fromArguments args: [String]) -> String? {
         let rest = Array(args.dropFirst())

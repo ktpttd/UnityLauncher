@@ -30,6 +30,23 @@ struct RealCLITests {
         if item.state != .succeeded { #expect(item.log.contains { $0.hasPrefix("error ") || $0.hasPrefix("warning ") }) }
     }
 
+    /// Needs a Unity 6 Editor open with the Pipeline package; passes trivially otherwise.
+    @MainActor @Test func drivesRunningEditorReadOnly() async throws {
+        let cli: UnityCLI = try #require(cli)
+        let model = LiveModel(cli: cli)
+        await model.refreshInstances()
+        guard model.selected != nil else { return }
+        await model.poll()
+        #expect(model.status?.playMode != nil)
+        model.evalCode = "return Application.unityVersion;"
+        await model.eval()
+        #expect(UnityVersion(model.evalOutput) != nil)
+        model.commandLine = "editor_status"
+        await model.runCommandLine()
+        #expect(model.commandOutput.contains("playMode"))
+        #expect(model.error == nil)
+    }
+
     @Test func listsTemplatesAndReleases() async throws {
         let cli = try #require(cli)
         let editors = try await cli.run(["editors", "--installed"], as: [EditorInstall].self)

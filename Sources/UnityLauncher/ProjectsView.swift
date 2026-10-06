@@ -8,6 +8,9 @@ struct ProjectsView: View {
     @State private var confirmKill: ProjectRow?
     @State private var confirmRemove: ProjectRow?
     @State private var confirmClean: ProjectRow?
+    @State private var confirmPipeline: ProjectRow?
+    /// TabView keeps toolbars of visited tabs alive; only show ours on the Projects tab.
+    @AppStorage("selectedTab") private var tab = "projects"
     @State private var sheet: ProjectSheet?
 
     private var selected: ProjectRow? { state.projects.first { $0.id == selection } }
@@ -49,28 +52,12 @@ struct ProjectsView: View {
                 Task { await state.open(row) }
             }
         }
-        .searchable(text: $state.search, placement: .toolbar, prompt: "Search name or path")
         .dropDestination(for: URL.self) { urls, _ in
             Task { for url in urls { await state.cliAction(["projects", "add", url.path]) } }
             return true
         }
         .toolbar {
-            ToolbarItemGroup {
-                Button("Open", systemImage: "play.fill") { if let s = selected { Task { await state.open(s) } } }
-                    .disabled(selected?.exists != true)
-                    .keyboardShortcut(.return, modifiers: [])
-                Button("Kill Unity", systemImage: "xmark.octagon") { confirmKill = selected }
-                    .disabled(selected?.pid == nil)
-                    .keyboardShortcut("q", modifiers: .option)
-                Button("New Project", systemImage: "doc.badge.plus") { sheet = .newProject }
-                    .keyboardShortcut("n")
-                    .disabled(state.editors.isEmpty)
-                Button("Add Project", systemImage: "plus") {
-                    if let url = Mac.chooseFolder(message: "Choose a Unity project folder") {
-                        Task { await state.cliAction(["projects", "add", url.path]) }
-                    }
-                }
-            }
+            if tab == "projects" { projectToolbar }
         }
         .sheet(item: $sheet) { sheet in
             switch sheet {
@@ -85,6 +72,15 @@ struct ProjectsView: View {
             }
         } message: {
             Text("Unity regenerates them on next open (slow first import). The CLI refuses while the project is open.")
+        }
+        .confirmationDialog("Enable Live Control for \(confirmPipeline?.project.title ?? "")?", isPresented: .init(get: { confirmPipeline != nil }, set: { if !$0 { confirmPipeline = nil } })) {
+            Button("Add Pipeline Package") {
+                if let row = confirmPipeline {
+                    state.runTask("Pipeline: \(row.project.title)", ["pipeline", "install", "--project-path", row.project.path])
+                }
+            }
+        } message: {
+            Text("Adds com.unity.pipeline to Packages/manifest.json so the Live tab can drive this project's Editor.")
         }
         .alert("Arguments for \(editingArgs?.project.title ?? "")", isPresented: .init(get: { editingArgs != nil }, set: { if !$0 { editingArgs = nil } })) {
             TextField("-logFile out.log", text: $argsText)
@@ -102,6 +98,31 @@ struct ProjectsView: View {
             Button("Remove", role: .destructive) { if let row = confirmRemove { Task { await state.cliAction(["projects", "remove", row.project.path]) } } }
         } message: {
             Text("Files on disk are not touched.")
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var projectToolbar: some ToolbarContent {
+        ToolbarItemGroup {
+            Button("Open", systemImage: "play.fill") { if let s = selected { Task { await state.open(s) } } }
+                .disabled(selected?.exists != true)
+                .keyboardShortcut(.return, modifiers: [])
+            Button("Kill Unity", systemImage: "xmark.octagon") { confirmKill = selected }
+                .disabled(selected?.pid == nil)
+                .keyboardShortcut("q", modifiers: .option)
+            Button("New Project", systemImage: "doc.badge.plus") { sheet = .newProject }
+                .keyboardShortcut("n")
+                .disabled(state.editors.isEmpty)
+            Button("Add Project", systemImage: "plus") {
+                if let url = Mac.chooseFolder(message: "Choose a Unity project folder") {
+                    Task { await state.cliAction(["projects", "add", url.path]) }
+                }
+            }
+        }
+        ToolbarItem {
+            TextField("Search name or path", text: Bindable(state).search)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 220)
         }
     }
 
@@ -137,6 +158,9 @@ struct ProjectsView: View {
                 Button("Player.log") { let p = state.player(row); Mac.open(Local.playerLogURL(company: p.company, product: p.product).deletingLastPathComponent()) }
                 Button("Persistent Data Path") { let p = state.player(row); Mac.open(Local.persistentDataURL(company: p.company, product: p.product)) }
                 Button("Project Logs Folder") { Mac.open(URL(fileURLWithPath: path + "/Logs")) }
+            }
+            if (UnityVersion(row.project.version)?.major ?? 0) >= 6000, !Local.hasPipeline(URL(fileURLWithPath: path)) {
+                Button("Enable Live Control…") { confirmPipeline = row }
             }
             Menu("Maintenance") {
                 Button("Disk Usage") { Task { await state.showSize(row) } }

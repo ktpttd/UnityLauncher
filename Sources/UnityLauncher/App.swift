@@ -66,6 +66,7 @@ struct ContentView: View {
                 ProjectsView().tabItem { Text("Projects") }.tag("projects")
                 EditorsView().tabItem { Text("Editors") }.tag("editors")
                 ReleasesView().tabItem { Text("Releases") }.tag("releases")
+                LiveView().tabItem { Text("Live") }.tag("live")
             }
         }
         .inspector(isPresented: $state.showTasks) {
