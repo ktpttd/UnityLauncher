@@ -48,12 +48,42 @@ func playerSettingsAsset(keystore: String, alias: String, custom: Int) -> String
     #expect(Local.androidSigning(project: project, profile: nil)?.keystore.path == "/Users/dev/release.keystore")
 }
 
-@Test func buildArgumentsCarryKeystoreFlags() {
-    let signing = AndroidSigningArgs(keystoreBase64: "QUJD", password: "p1", alias: "eggo", aliasPassword: "")
-    let args = BuildTarget.arguments(project: "/p", target: .android, profile: "Assets/A.asset", output: "/o", allowDirty: false, signing: signing)
-    #expect(args == ["build", "/p", "--output-path", "/o", "--profile", "Assets/A.asset",
-                     "--android-keystore-base64", "QUJD", "--android-keystore-password", "p1", "--android-key-alias", "eggo"])
-    let withAlias = AndroidSigningArgs(keystoreBase64: "QUJD", password: "p1", alias: "eggo", aliasPassword: "p2")
-    #expect(BuildTarget.arguments(project: "/p", target: .android, profile: nil, output: "/o", allowDirty: false, signing: withAlias).suffix(2)
-            == ["--android-key-alias-password", "p2"])
+/// The CLI rejects keystore flags without --execute-method, so signed builds go through our build script.
+@Test func scriptBuildArguments() {
+    #expect(BuildScript.arguments(project: "/p", target: .android, output: "/o/Game.apk", allowDirty: false)
+            == ["build", "/p", "--output-path", "/o/Game.apk", "--target", "Android", "--execute-method", "UnityLauncherBuild.Build"])
+    #expect(BuildScript.arguments(project: "/p", target: .android, output: "/o", allowDirty: true).last == "--allow-dirty-build")
+}
+
+@Test func scriptEnvironmentCarriesProfileAndPasswords() {
+    let env = BuildScript.environment(profile: "Assets/P.asset", keystorePassword: "k", aliasPassword: "")
+    #expect(env == ["UNITY_LAUNCHER_PROFILE": "Assets/P.asset", "UNITY_LAUNCHER_KEYSTORE_PASS": "k"])
+    #expect(BuildScript.environment(profile: "Assets/P.asset", keystorePassword: "k", aliasPassword: "a")["UNITY_LAUNCHER_KEYALIAS_PASS"] == "a")
+}
+
+@Test func installsAndUpdatesBuildScript() throws {
+    let project = try unityProject()
+    #expect(BuildScript.status(project: project) == .missing)
+    try BuildScript.install(project: project)
+    #expect(BuildScript.status(project: project) == .current)
+    let file = project.appendingPathComponent(BuildScript.relativePath)
+    #expect(try String(contentsOf: file, encoding: .utf8).contains("public static void Build()"))
+    try "// old version".write(to: file, atomically: true, encoding: .utf8)
+    #expect(BuildScript.status(project: project) == .outdated)
+}
+
+@Test func streamPassesExtraEnvironment() async throws {
+    let cli = try fakeCLI(#"echo "{\"type\":\"result\",\"success\":true,\"message\":\"$UL_TEST\"}""#)
+    var last: Frame?
+    for try await f in cli.stream(["x"], environment: ["UL_TEST": "secret-ok"]) { last = f }
+    #expect(last?.text == "secret-ok")
+}
+
+@MainActor @Test func runTaskForwardsEnvironmentWithoutLoggingIt() async throws {
+    let cli = try fakeCLI(#"echo "{\"type\":\"result\",\"success\":${UL_TEST:+true}${UL_TEST:-false}}""#)
+    let state = AppState(cli: cli)
+    let item = state.runTask("Build", ["build", "/p"], refreshAfter: false, environment: ["UL_TEST": "x"])
+    await item.task?.value
+    #expect(item.state == .succeeded)
+    #expect(!item.log.joined().contains("x"))
 }

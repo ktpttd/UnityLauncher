@@ -53,11 +53,11 @@ struct UnityCLI: Sendable {
         "UNITY_NO_PAGER": "1",
     ]) { _, new in new }
 
-    private func makeProcess(_ args: [String], format: String) -> Process {
+    private func makeProcess(_ args: [String], format: String, environment: [String: String] = [:]) -> Process {
         let p = Process()
         p.executableURL = executable
         p.arguments = ["--no-banner", "--non-interactive", "--format", format] + args
-        p.environment = Self.environment
+        p.environment = Self.environment.merging(environment) { _, new in new }
         p.standardInput = FileHandle.nullDevice
         return p
     }
@@ -127,8 +127,8 @@ struct UnityCLI: Sendable {
 
     /// Yields every ndjson frame, including the final `result`. Throws only if the process
     /// dies without emitting a `result` frame. Cancelling the consumer terminates the process.
-    func stream(_ args: [String]) -> AsyncThrowingStream<Frame, Error> {
-        let p = makeProcess(args, format: "ndjson")
+    func stream(_ args: [String], environment: [String: String] = [:]) -> AsyncThrowingStream<Frame, Error> {
+        let p = makeProcess(args, format: "ndjson", environment: environment)
         let out = Pipe()
         p.standardOutput = out
         p.standardError = FileHandle.nullDevice

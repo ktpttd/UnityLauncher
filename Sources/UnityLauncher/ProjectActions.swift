@@ -196,7 +196,7 @@ struct BuildSheet: View {
                 }
                 SecureField("Keystore password", text: $keystorePassword)
                 SecureField("Alias password (if different)", text: $aliasPassword)
-                Text("Passwords go to the Unity CLI as arguments for this build only and are not saved. Other apps running as you can see process arguments while it builds.")
+                Text("Signed builds run through \(BuildScript.relativePath), which the launcher adds to the project (commit it; it holds no secrets). Passwords reach it as environment variables for this build only and are never saved.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             if isOpen {
@@ -227,23 +227,27 @@ struct BuildSheet: View {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Build") {
-                    var keys: AndroidSigningArgs?
-                    if needsPassword, let s = signing {
-                        guard let data = try? Data(contentsOf: s.keystore) else {
-                            state.errorMessage = "Can't read keystore \(s.keystore.path)."
-                            return
-                        }
-                        keys = AndroidSigningArgs(keystoreBase64: data.base64EncodedString(), password: keystorePassword,
-                                                  alias: s.alias, aliasPassword: aliasPassword)
-                    }
-                    let args = BuildTarget.arguments(project: row.project.path, target: target,
-                                                     profile: profile.isEmpty ? nil : profile,
-                                                     output: output, allowDirty: allowDirty, signing: keys)
                     let what = profiles.first { $0.path == profile }?.profile ?? target.label
-                    state.runTask("Build \(row.project.title) (\(what))", args)
+                    if needsPassword {
+                        // `unity build --profile` can't take keystore passwords; our build method can.
+                        let project = URL(fileURLWithPath: row.project.path)
+                        if BuildScript.status(project: project) != .current {
+                            do { try BuildScript.install(project: project) } catch {
+                                state.errorMessage = "Couldn't add \(BuildScript.relativePath): \(error.localizedDescription)"
+                                return
+                            }
+                        }
+                        state.runTask("Build \(row.project.title) (\(what), signed)",
+                                      BuildScript.arguments(project: row.project.path, target: target, output: output, allowDirty: allowDirty),
+                                      environment: BuildScript.environment(profile: profile, keystorePassword: keystorePassword, aliasPassword: aliasPassword))
+                    } else {
+                        state.runTask("Build \(row.project.title) (\(what))",
+                                      BuildTarget.arguments(project: row.project.path, target: target, profile: profile.isEmpty ? nil : profile,
+                                                            output: output, allowDirty: allowDirty))
+                    }
                     dismiss()
                 }
-                .disabled(output.isEmpty || isOpen || (target.needsProfile && profile.isEmpty) || (needsPassword && keystorePassword.isEmpty))
+                .disabled(output.isEmpty || isOpen || (target.needsProfile && profile.isEmpty) || (needsPassword && (keystorePassword.isEmpty || profile.isEmpty)))
             }
         }
     }

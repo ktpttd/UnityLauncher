@@ -50,7 +50,7 @@ final class TaskItem: Identifiable {
 extension AppState {
     /// Streams `args` as ndjson into a new TaskItem.
     @discardableResult
-    func runTask(_ title: String, _ args: [String], refreshAfter: Bool = true) -> TaskItem {
+    func runTask(_ title: String, _ args: [String], refreshAfter: Bool = true, environment: [String: String] = [:]) -> TaskItem {
         let item = TaskItem(title: title)
         tasks.insert(item, at: 0)
         showTasks = true
@@ -60,7 +60,7 @@ extension AppState {
         }
         item.task = Task {
             do {
-                for try await f in cli.stream(args) { item.apply(f) }
+                for try await f in cli.stream(args, environment: environment) { item.apply(f) }
                 if item.state == .running { item.state = .succeeded }
             } catch {
                 if item.state == .running { item.state = .failed(error.localizedDescription) }
@@ -147,27 +147,12 @@ enum BuildTarget: String, CaseIterable, Identifiable {
         }
     }
 
-    static func arguments(project: String, target: BuildTarget, profile: String?, output: String, allowDirty: Bool,
-                          signing: AndroidSigningArgs? = nil) -> [String] {
+    static func arguments(project: String, target: BuildTarget, profile: String?, output: String, allowDirty: Bool) -> [String] {
         var args = ["build", project, "--output-path", output]
         args += profile.map { ["--profile", $0] } ?? ["--target", target.rawValue]
         if allowDirty { args.append("--allow-dirty-build") }
-        if let s = signing {
-            args += ["--android-keystore-base64", s.keystoreBase64, "--android-keystore-password", s.password,
-                     "--android-key-alias", s.alias]
-            if !s.aliasPassword.isEmpty { args += ["--android-key-alias-password", s.aliasPassword] }
-        }
         return args
     }
-}
-
-/// Secrets for `unity build`; built right before launch and never stored or logged.
-struct AndroidSigningArgs {
-    let keystoreBase64: String
-    let password: String
-    let alias: String
-    /// Empty = same as the keystore password (the CLI's default).
-    let aliasPassword: String
 }
 
 struct InfoMessage: Identifiable {
