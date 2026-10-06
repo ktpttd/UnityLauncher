@@ -34,16 +34,6 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
             <key>LSItemContentTypes</key><array><string>public.folder</string></array>
         </dict>
     </array>
-    <key>NSServices</key>
-    <array>
-        <dict>
-            <key>NSMenuItem</key><dict><key>default</key><string>Open in Unity Launcher</string></dict>
-            <key>NSMessage</key><string>openProject</string>
-            <key>NSPortName</key><string>UnityLauncher</string>
-            <key>NSRequiredContext</key><dict/>
-            <key>NSSendFileTypes</key><array><string>public.folder</string></array>
-        </dict>
-    </array>
 </dict>
 </plist>
 PLIST

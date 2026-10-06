@@ -79,12 +79,6 @@ func fakeCLI(_ body: String) throws -> UnityCLI {
     }
 }
 
-@Test func spawnStartsDetachedProcess() throws {
-    let p = try fakeCLI("exit 0").spawn(["open", "/p"])
-    p.waitUntilExit()
-    #expect(p.terminationStatus == 0)
-}
-
 @Test func locatePrefersExistingOverride() throws {
     let cli = try fakeCLI("true")
     #expect(UnityCLI.locate(override: cli.executable.path) == cli.executable)

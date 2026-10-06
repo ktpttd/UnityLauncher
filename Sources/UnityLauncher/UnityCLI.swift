@@ -152,14 +152,4 @@ struct UnityCLI: Sendable {
             }
         }
     }
-
-    // MARK: Fire and forget (open, build run)
-
-    func spawn(_ args: [String]) throws -> Process {
-        let p = makeProcess(args, format: "json")
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        do { try p.run() } catch { throw CLIError.notFound }
-        return p
-    }
 }

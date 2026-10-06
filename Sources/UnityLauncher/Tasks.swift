@@ -12,7 +12,6 @@ final class TaskItem: Identifiable {
     var pct: Double?
     var state: State = .running
     @ObservationIgnored var task: Task<Void, Never>?
-    @ObservationIgnored var process: Process?
 
     init(title: String) { self.title = title }
 
@@ -37,7 +36,6 @@ final class TaskItem: Identifiable {
         guard state == .running else { return }
         state = .failed("Stopped")
         task?.cancel()
-        process?.terminate()
     }
 }
 
@@ -62,36 +60,6 @@ extension AppState {
             if refreshAfter { await refresh() }
         }
         return item
-    }
-
-    /// Called on quit: servers would otherwise outlive the app and keep their port open.
-    /// Installs and builds are left to finish.
-    func stopServers() {
-        for item in tasks where item.process != nil { item.stop() }
-    }
-
-    /// Starts a process that keeps running until stopped (e.g. the WebGL server of `build run`).
-    func runServer(_ title: String, _ args: [String]) {
-        let item = TaskItem(title: title)
-        tasks.insert(item, at: 0)
-        showTasks = true
-        guard let cli else {
-            item.state = .failed(CLIError.notFound.localizedDescription)
-            return
-        }
-        do {
-            let p = try cli.spawn(args)
-            item.process = p
-            item.log.append("Running. Press Stop to shut it down.")
-            p.terminationHandler = { p in
-                let status = p.terminationStatus
-                Task { @MainActor in
-                    if item.state == .running { item.state = status == 0 ? .succeeded : .failed("Exited with code \(status)") }
-                }
-            }
-        } catch {
-            item.state = .failed(error.localizedDescription)
-        }
     }
 }
 

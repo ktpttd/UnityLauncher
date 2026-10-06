@@ -31,33 +31,21 @@ struct UnityLauncherApp: App {
     }
 }
 
-/// Owns the app state so Finder / Dock / Services / command-line opens work before any window exists.
+/// Owns the app state so Finder / Dock / command-line opens work before any window exists.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let state = AppState()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.servicesProvider = self
-        NSUpdateDynamicServices()
         Task {
             if let path = Local.projectPath(fromArguments: CommandLine.arguments) { await state.openPath(path) }
             await state.refresh()
         }
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
-        state.stopServers()
-    }
-
     /// Folders dropped on the Dock icon, "Open With", or `open -a UnityLauncher <folder>`.
     func application(_ application: NSApplication, open urls: [URL]) {
         Task { for url in urls { await state.openPath(url.path) } }
-    }
-
-    /// Finder Services menu → "Open in Unity Launcher" (declared in Info.plist by scripts/bundle.sh).
-    @objc func openProject(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
-        let urls = pboard.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
-        application(NSApp, open: urls)
     }
 }
 

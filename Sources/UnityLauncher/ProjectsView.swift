@@ -128,11 +128,6 @@ struct ProjectsView: View {
             Divider()
             Button("Upgrade…") { sheet = .upgrade(row) }
             Button("Build…") { sheet = .build(row) }
-            Button("Run WebGL Build…") {
-                if let url = Mac.chooseFolder(message: "Choose the WebGL build folder (contains index.html)") {
-                    state.runServer("WebGL: \(row.project.title)", ["build", "run", path, "--path", url.path])
-                }
-            }
             Menu("Run Tests") {
                 Button("EditMode") { runTests(row, mode: "EditMode") }
                 Button("PlayMode") { runTests(row, mode: "PlayMode") }

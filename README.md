@@ -47,7 +47,7 @@ UNITY_INTEGRATION=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swi
 - Double-click or ⏎ opens a project with its own Unity version. If that version isn't installed, the app offers to install it or open with another version.
 - Context menu:
   - Open With, per-project launch arguments, Reveal in Finder, Open in Terminal, Edit `manifest.json`
-  - Upgrade, Build (desktop targets or a Build Profile), Run WebGL Build (local server), EditMode/PlayMode tests
+  - Upgrade, Build (desktop targets or a Build Profile), EditMode/PlayMode tests
   - Editor.log, Player.log, Persistent Data, the project's Logs folder
   - Disk usage, Verify (meta/GUID/merge-marker checks), Clean Library
   - Pin/Unpin, Kill Unity (⌥Q), Remove from list
@@ -76,7 +76,6 @@ UNITY_INTEGRATION=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swi
 ## Opening projects from Finder or the command line
 
 - Drag a project folder onto the Dock icon, or use **Open With → Unity Launcher**.
-- Right-click a folder and choose **Services → Open in Unity Launcher**.
 - From the command line (`-projectPath` matches UnityLauncherPro):
   ```bash
   open -a build/UnityLauncher.app ~/Work/MyGame
