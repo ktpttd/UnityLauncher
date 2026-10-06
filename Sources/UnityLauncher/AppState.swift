@@ -77,23 +77,38 @@ final class AppState {
     }
 
     nonisolated static func rows(for projects: [Project], running: [UnityProcess]) -> [ProjectRow] {
-        func norm(_ p: String) -> String { URL(fileURLWithPath: p).standardizedFileURL.path.lowercased() }
-        // Each process belongs to the longest known project path its args start with, so
-        // "/Work/MyGame - Backup -useHub" never matches "/Work/MyGame".
-        var pids: [String: Int32] = [:]
-        for proc in running {
-            let tail = proc.argsTail.lowercased()
-            let owner = projects.map(\.path)
-                .filter { path in [norm(path), norm(path) + "/"].contains { tail == $0 || tail.hasPrefix($0 + " ") } }
-                .max { norm($0).count < norm($1).count }
-            if let owner { pids[owner] = proc.pid }
-        }
+        let pids = pids(for: projects.map(\.path), running: running)
         return projects.map { p in
             ProjectRow(project: p,
                        exists: FileManager.default.fileExists(atPath: p.path),
                        branch: Local.gitBranch(at: URL(fileURLWithPath: p.path)),
                        pid: pids[p.path])
         }
+    }
+
+    /// Each process belongs to the longest known project path its args start with, so
+    /// "/Work/MyGame - Backup -useHub" never matches "/Work/MyGame".
+    nonisolated static func pids(for paths: [String], running: [UnityProcess]) -> [String: Int32] {
+        func norm(_ p: String) -> String { URL(fileURLWithPath: p).standardizedFileURL.path.lowercased() }
+        var pids: [String: Int32] = [:]
+        for proc in running {
+            let tail = proc.argsTail.lowercased()
+            let owner = paths
+                .filter { path in [norm(path), norm(path) + "/"].contains { tail == $0 || tail.hasPrefix($0 + " ") } }
+                .max { norm($0).count < norm($1).count }
+            if let owner { pids[owner] = proc.pid }
+        }
+        return pids
+    }
+
+    /// Cheap running-state update (no CLI call): re-matches pids only.
+    func applyRunning(_ running: [UnityProcess]) {
+        let pids = Self.pids(for: projects.map(\.project.path), running: running)
+        projects = projects.map { ProjectRow(project: $0.project, exists: $0.exists, branch: $0.branch, pid: pids[$0.project.path]) }
+    }
+
+    func refreshRunning() async {
+        applyRunning(await Task.detached { Local.runningUnity() }.value)
     }
 
     /// Runs a CLI action, surfacing any error as an alert.

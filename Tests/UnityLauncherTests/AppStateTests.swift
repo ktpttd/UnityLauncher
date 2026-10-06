@@ -57,3 +57,12 @@ func row(_ title: String, path: String? = nil, modified: Double, pinned: Bool = 
     #expect(rows.first { $0.project.title == "Game" }?.pid == nil)
     #expect(rows.first { $0.project.title == "Backup" }?.pid == 7)
 }
+
+@MainActor @Test func applyRunningUpdatesPidsInPlace() {
+    let state = AppState(cli: nil)
+    state.projects = [row("A", path: "/Work/A", modified: 1), row("B", path: "/Work/B", modified: 2)]
+    state.applyRunning([UnityProcess(pid: 9, argsTail: "/Work/A -useHub")])
+    #expect(state.projects.map(\.pid) == [9, nil])
+    state.applyRunning([])
+    #expect(state.projects.map(\.pid) == [nil, nil])
+}

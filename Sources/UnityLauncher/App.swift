@@ -69,6 +69,13 @@ struct ContentView: View {
                 LiveView().tabItem { Text("Live") }.tag("live")
             }
         }
+        .task {
+            // Keep the "running" dots current while the window is open.
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                await state.refreshRunning()
+            }
+        }
         .inspector(isPresented: $state.showTasks) {
             TasksView().inspectorColumnWidth(min: 260, ideal: 320)
         }
