@@ -70,3 +70,12 @@ Used Assets and files from the Resources folder, sorted by uncompressed size:
     try write("-projectpath \(project.path)\n" + sampleLog, to: editorLog)
     #expect(BuildReport.latest(project: project, editorLog: editorLog)?.source == editorLog)
 }
+
+/// Excerpt of a real `unity build` iOS log (Unity 6000.3.16f1).
+@Test func parsesRealIOSBuildLog() throws {
+    let url = try #require(Bundle.module.url(forResource: "build-ios", withExtension: "log", subdirectory: "Fixtures"))
+    let report = try #require(BuildReport.parseAll(try String(contentsOf: url, encoding: .utf8)).last)
+    #expect(report.stats.count == 10)
+    #expect(report.stats.last == .init(category: "Complete build size", size: "965.0 mb", percent: nil))
+    #expect(report.items.first == .init(size: "1.2 mb", percent: "0.1%", path: "Built-in Texture2D: Splash Screen Unity Logo"))
+}

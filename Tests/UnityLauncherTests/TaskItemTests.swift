@@ -73,4 +73,38 @@ func frame(_ json: String) -> Frame { try! JSONDecoder().decode(Frame.self, from
     #expect(BuildTarget.macOS.defaultOutput(project: "/p", product: "Game") == "/p/Builds/StandaloneOSX/Game.app")
     #expect(BuildTarget.windows.defaultOutput(project: "/p", product: "Game") == "/p/Builds/StandaloneWindows64/Game.exe")
     #expect(BuildTarget.linux.defaultOutput(project: "/p", product: "Game") == "/p/Builds/StandaloneLinux64/Game.x86_64")
+    #expect(BuildTarget.iOS.defaultOutput(project: "/p", product: "Game") == "/p/Builds/iOS")
+    #expect(BuildTarget.android.defaultOutput(project: "/p", product: "Game") == "/p/Builds/Android/Game.apk")
+    #expect(BuildTarget.webGL.defaultOutput(project: "/p", product: "Game") == "/p/Builds/WebGL")
+}
+
+/// Product names like "Eggoo : Roguelike" must not put ':' or '/' into file names.
+@Test func buildOutputSanitizesProductName() {
+    #expect(BuildTarget.macOS.defaultOutput(project: "/p", product: "Eggoo : Rogue/like") == "/p/Builds/StandaloneOSX/Eggoo - Rogue-like.app")
+}
+
+@Test func onlyDesktopTargetsBuildWithoutProfile() {
+    #expect(BuildTarget.allCases.filter { !$0.needsProfile } == [.macOS, .windows, .linux])
+}
+
+@Test func buildArgumentsUseTargetOrProfile() {
+    #expect(BuildTarget.arguments(project: "/p", target: .macOS, profile: nil, output: "/o", allowDirty: false)
+            == ["build", "/p", "--output-path", "/o", "--target", "StandaloneOSX"])
+    #expect(BuildTarget.arguments(project: "/p", target: .iOS, profile: "Assets/Settings/Build Profiles/iOS.asset", output: "/o", allowDirty: true)
+            == ["build", "/p", "--output-path", "/o", "--profile", "Assets/Settings/Build Profiles/iOS.asset", "--allow-dirty-build"])
+}
+
+@MainActor @Test func loadsBuildProfilesFromCLI() async throws {
+    let state = AppState(cli: try fakeCLI(#"echo '{"success":true,"data":[{"profile":"iOS","path":"Assets/Settings/Build Profiles/iOS.asset"}],"errors":[],"warnings":[]}'"#))
+    let profiles = await state.buildProfiles(project: "/p")
+    #expect(profiles == [BuildProfile(profile: "iOS", path: "Assets/Settings/Build Profiles/iOS.asset")])
+}
+
+/// `unity build` progress frames use "msg", not "message" (seen on a real iOS build).
+@MainActor @Test func buildProgressFramesUseMsgKey() {
+    let item = TaskItem(title: "Build")
+    item.apply(frame(#"{"type":"progress","pct":0,"msg":"Starting build (iOS)..."}"#))
+    item.apply(frame(#"{"type":"progress","pct":100,"msg":"Build complete"}"#))
+    #expect(item.log == ["Starting build (iOS)...", "Build complete"])
+    #expect(item.pct == 100)
 }

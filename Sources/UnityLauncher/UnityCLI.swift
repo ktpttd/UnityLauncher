@@ -20,6 +20,8 @@ enum CLIError: LocalizedError, Equatable {
 struct Frame: Decodable, Sendable {
     let type: String
     let message: String?
+    /// `unity build` progress frames say "msg" instead of "message".
+    let msg: String?
     let pct: Double?
     let success: Bool?
     let errors: [CLIErrorItem]?
@@ -27,6 +29,8 @@ struct Frame: Decodable, Sendable {
     let code: String?
     let severity: String?
     let path: String?
+
+    var text: String? { message ?? msg }
 }
 
 /// Thin wrapper over the `unity` binary. Every call is `unity --no-banner --non-interactive --format <fmt> <args>`.

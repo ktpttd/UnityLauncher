@@ -19,10 +19,22 @@ extension AppState {
         catch { errorMessage = error.localizedDescription; return [] }
     }
 
+    func buildProfiles(project: String) async -> [BuildProfile] {
+        guard let cli else { return [] }
+        return (try? await cli.run(["build", project, "--list-profiles"], as: [BuildProfile].self)) ?? []
+    }
+
     /// Company / product from ProjectSettings, falling back to Unity's defaults.
     func player(_ row: ProjectRow) -> (company: String, product: String) {
         Local.playerSettings(at: URL(fileURLWithPath: row.project.path)) ?? ("DefaultCompany", row.project.title)
     }
+}
+
+/// `unity build --list-profiles` row (Unity 6+ Build Profile asset).
+struct BuildProfile: Decodable, Hashable, Identifiable {
+    var id: String { path }
+    let profile: String
+    let path: String
 }
 
 enum ProjectSheet: Identifiable {
@@ -128,38 +140,81 @@ struct BuildSheet: View {
     @Environment(\.dismiss) private var dismiss
     let row: ProjectRow
     @State private var target = BuildTarget.macOS
+    @State private var profiles: [BuildProfile] = []
     @State private var profile = ""
     @State private var output = ""
     @State private var allowDirty = false
+    @State private var creatingProfile = false
+
+    private var isUnity6: Bool { (UnityVersion(row.project.version)?.major ?? 0) >= 6000 }
+    /// Batch builds can't open a project the Editor already has open.
+    private var isOpen: Bool { state.projects.first { $0.id == row.id }?.pid != nil }
 
     var body: some View {
         Form {
             Picker("Target", selection: $target) {
                 ForEach(BuildTarget.allCases) { Text($0.label).tag($0) }
             }
-            .disabled(!profile.isEmpty)
-            TextField("Build Profile (optional, Unity 6+)", text: $profile, prompt: Text("e.g. iOS Release"))
+            if target.needsProfile {
+                if isUnity6 {
+                    Picker("Build Profile", selection: $profile) {
+                        if profiles.isEmpty { Text("None in project").tag("") }
+                        ForEach(profiles) { Text($0.profile).tag($0.path) }
+                    }
+                    Button(creatingProfile ? "Creating \(target.label) profile…" : "Create \(target.label) Profile") {
+                        createProfile()
+                    }
+                    .disabled(creatingProfile || isOpen)
+                } else {
+                    Text("\(target.label) builds need a Unity 6 Build Profile. This project uses \(row.project.version).")
+                        .foregroundStyle(.secondary)
+                }
+            }
             TextField("Output", text: $output)
             Toggle("Allow uncommitted changes", isOn: $allowDirty)
-            Text("Mobile and WebGL targets need a Build Profile.").font(.caption).foregroundStyle(.secondary)
+            if isOpen {
+                Label("Unity has this project open. Close it first: a batch build can't open the same project.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange).font(.callout)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 480)
+        .frame(width: 520)
         .onChange(of: target, initial: true) {
             output = target.defaultOutput(project: row.project.path, product: state.player(row).product)
         }
+        .task { await loadProfiles() }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Build") {
-                    var args = ["build", row.project.path, "--output-path", output]
-                    args += profile.isEmpty ? ["--target", target.rawValue] : ["--profile", profile]
-                    if allowDirty { args.append("--allow-dirty-build") }
-                    state.runTask("Build \(row.project.title) (\(profile.isEmpty ? target.label : profile))", args)
+                    let args = BuildTarget.arguments(project: row.project.path, target: target,
+                                                     profile: target.needsProfile ? profile : nil,
+                                                     output: output, allowDirty: allowDirty)
+                    state.runTask("Build \(row.project.title) (\(target.label))", args)
                     dismiss()
                 }
-                .disabled(output.isEmpty)
+                .disabled(output.isEmpty || isOpen || (target.needsProfile && profile.isEmpty))
             }
+        }
+    }
+
+    private func loadProfiles() async {
+        guard isUnity6 else { return }
+        profiles = await state.buildProfiles(project: row.project.path)
+        if !profiles.contains(where: { $0.path == profile }) {
+            profile = profiles.first { $0.profile.localizedCaseInsensitiveContains(target.label) }?.path ?? profiles.first?.path ?? ""
+        }
+    }
+
+    private func createProfile() {
+        creatingProfile = true
+        let item = state.runTask("Create \(target.label) profile: \(row.project.title)",
+                                 ["build", row.project.path, "--create-profile", target.rawValue], refreshAfter: false)
+        Task {
+            await item.task?.value
+            creatingProfile = false
+            await loadProfiles()
         }
     }
 }

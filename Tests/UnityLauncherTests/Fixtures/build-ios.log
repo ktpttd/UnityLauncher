@@ -1,0 +1,22 @@
+-------------------------------------------------------------------------------
+Build Report
+Uncompressed usage by category (Percentages based on user generated assets only):
+Textures               4.5 mb	 77.2% 
+Meshes                 0.0 kb	 0.0% 
+Animations             0.0 kb	 0.0% 
+Sounds                 0.0 kb	 0.0% 
+Shaders                597.6 kb	 10.0% 
+Other Assets           383.9 kb	 6.4% 
+Levels                 2.6 kb	 0.0% 
+File headers           124.0 kb	 2.1% 
+Total User Assets      5.8 mb	 100.0% 
+Complete build size    965.0 mb
+Used Assets and files from the Resources folder, sorted by uncompressed size:
+ 1.2 mb	 0.1% Built-in Texture2D: Splash Screen Unity Logo
+ 527.3 kb	 0.1% Resources/unity_builtin_extra
+ 262.6 kb	 0.0% Packages/com.unity.render-pipelines.universal/Textures/SMAA/AreaTex.tga
+ 256.1 kb	 0.0% Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Thin02.png
+ 256.1 kb	 0.0% Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Thin01.png
+ 256.1 kb	 0.0% Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Medium06.png
+ 256.1 kb	 0.0% Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Medium05.png
+-------------------------------------------------------------------------------

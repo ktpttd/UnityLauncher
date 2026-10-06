@@ -18,9 +18,9 @@ final class TaskItem: Identifiable {
     func apply(_ f: Frame) {
         let line: String? = if let code = f.code {
             // Finding: "error CONFLICT_MARKERS Assets/b.meta: message"
-            [f.severity, code, f.path].compactMap { $0 }.joined(separator: " ") + (f.message.map { ": \($0)" } ?? "")
+            [f.severity, code, f.path].compactMap { $0 }.joined(separator: " ") + (f.text.map { ": \($0)" } ?? "")
         } else {
-            f.message
+            f.text
         }
         if let line, !line.isEmpty {
             log.append(line)
@@ -81,20 +81,38 @@ struct Template: Decodable, Identifiable, Hashable {
     let displayName: String
 }
 
-/// Desktop targets the CLI can build without a custom method or Build Profile.
+/// Build targets offered in the Build sheet. Only desktop targets build without a Build Profile.
 enum BuildTarget: String, CaseIterable, Identifiable {
     case macOS = "StandaloneOSX", windows = "StandaloneWindows64", linux = "StandaloneLinux64"
+    case iOS, android = "Android", webGL = "WebGL"
 
     var id: String { rawValue }
     var label: String {
-        switch self { case .macOS: "macOS"; case .windows: "Windows"; case .linux: "Linux" }
+        switch self {
+        case .macOS: "macOS"; case .windows: "Windows"; case .linux: "Linux"
+        case .iOS: "iOS"; case .android: "Android"; case .webGL: "WebGL"
+        }
     }
-    private var ext: String {
-        switch self { case .macOS: ".app"; case .windows: ".exe"; case .linux: ".x86_64" }
-    }
+    /// `unity build --list-targets`: everything except desktop needs `--profile` or `--execute-method`.
+    var needsProfile: Bool { ![.macOS, .windows, .linux].contains(self) }
 
     func defaultOutput(project: String, product: String) -> String {
-        "\(project)/Builds/\(rawValue)/\(product)\(ext)"
+        let name = product.replacingOccurrences(of: ":", with: "-").replacingOccurrences(of: "/", with: "-")
+        let dir = "\(project)/Builds/\(rawValue)"
+        return switch self {
+        case .macOS: "\(dir)/\(name).app"
+        case .windows: "\(dir)/\(name).exe"
+        case .linux: "\(dir)/\(name).x86_64"
+        case .android: "\(dir)/\(name).apk"
+        case .iOS, .webGL: dir // Xcode project / web folder
+        }
+    }
+
+    static func arguments(project: String, target: BuildTarget, profile: String?, output: String, allowDirty: Bool) -> [String] {
+        var args = ["build", project, "--output-path", output]
+        args += profile.map { ["--profile", $0] } ?? ["--target", target.rawValue]
+        if allowDirty { args.append("--allow-dirty-build") }
+        return args
     }
 }
 
