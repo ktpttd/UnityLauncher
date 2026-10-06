@@ -64,6 +64,7 @@ struct ProjectsView: View {
             case .newProject: NewProjectSheet()
             case .upgrade(let row): UpgradeSheet(row: row)
             case .build(let row): BuildSheet(row: row)
+            case .buildReport(let row): BuildReportSheet(row: row)
             }
         }
         .confirmationDialog("Delete Library, Temp and Logs of \(confirmClean?.project.title ?? "")?", isPresented: .init(get: { confirmClean != nil }, set: { if !$0 { confirmClean = nil } })) {
@@ -149,6 +150,7 @@ struct ProjectsView: View {
             Divider()
             Button("Upgrade…") { sheet = .upgrade(row) }
             Button("Build…") { sheet = .build(row) }
+            Button("Build Report") { sheet = .buildReport(row) }
             Menu("Run Tests") {
                 Button("EditMode") { runTests(row, mode: "EditMode") }
                 Button("PlayMode") { runTests(row, mode: "PlayMode") }

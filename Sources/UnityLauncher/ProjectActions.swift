@@ -26,12 +26,13 @@ extension AppState {
 }
 
 enum ProjectSheet: Identifiable {
-    case newProject, upgrade(ProjectRow), build(ProjectRow)
+    case newProject, upgrade(ProjectRow), build(ProjectRow), buildReport(ProjectRow)
     var id: String {
         switch self {
         case .newProject: "new"
         case .upgrade(let r): "upgrade" + r.id
         case .build(let r): "build" + r.id
+        case .buildReport(let r): "report" + r.id
         }
     }
 }

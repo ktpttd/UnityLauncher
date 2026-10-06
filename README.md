@@ -47,7 +47,7 @@ UNITY_INTEGRATION=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swi
 - Double-click or ⏎ opens a project with its own Unity version. If that version isn't installed, the app offers to install it or open with another version.
 - Context menu:
   - Open With, per-project launch arguments, Reveal in Finder, Open in Terminal, Edit `manifest.json`
-  - Upgrade, Build (desktop targets or a Build Profile), EditMode/PlayMode tests
+  - Upgrade, Build (desktop targets or a Build Profile), Build Report (largest assets of the last build), EditMode/PlayMode tests
   - Editor.log, Player.log, Persistent Data, the project's Logs folder
   - Disk usage, Verify (meta/GUID/merge-marker checks), Clean Library
   - Pin/Unpin, Kill Unity (⌥Q), Remove from list
@@ -58,6 +58,12 @@ UNITY_INTEGRATION=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swi
 
 **Releases tab**
 - All, LTS, Tech, Beta, and Alpha streams, with filter, install, and release notes.
+
+**Live tab** (Unity 6+, needs the `com.unity.pipeline` package)
+- Drive a running Editor through `unity command`: Play, Pause, Stop, Save All, Recompile, Screenshot.
+- Live console with a log/warning/error filter.
+- Run C# with `eval`, or send any of the Editor's commands from the command box (it suggests command names).
+- For a project without the package, right-click it and choose **Enable Live Control…** to run `unity pipeline install`.
 
 **Tasks panel (⇧⌘T)**
 - Long operations (installs, builds, tests, upgrades, verify) stream progress and logs, and you can stop them.
@@ -98,4 +104,6 @@ The app only opens folders that contain `ProjectSettings/ProjectVersion.txt`.
 | `Local.swift` | Git branch, running editors (`ps`), well-known folders, adb, per-project args |
 | `AppState.swift` | Observable store and project actions |
 | `Tasks.swift` | Long-running task model |
+| `LiveEditor.swift` | Live tab model: `unity status` / `unity command` |
+| `BuildReport.swift` | Parses Unity's Build Report from build logs |
 | `*View.swift`, `*Sheet` | SwiftUI views |
