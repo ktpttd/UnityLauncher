@@ -25,6 +25,8 @@ final class TaskItem: Identifiable {
     var failureDetails: [String] = []
     /// iOS build made with the Simulator SDK: runs on simulators, not devices.
     var simulatorSDK = false
+    /// Build Profile the build used (to rebuild it for the simulator).
+    var profile: String?
     @ObservationIgnored var task: Task<Void, Never>?
 
     init(title: String) { self.title = title }

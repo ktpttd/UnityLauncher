@@ -289,17 +289,7 @@ struct BuildSheet: View {
                     let what = profiles.first { $0.path == profile }?.profile ?? target.label
                     if target == .iOS, simulatorBuild, !profile.isEmpty {
                         // Unity can only make a Simulator-SDK build through the launcher's build method.
-                        let project = URL(fileURLWithPath: row.project.path)
-                        if BuildScript.status(project: project) != .current {
-                            do { try BuildScript.install(project: project) } catch {
-                                state.errorMessage = "Couldn't add \(BuildScript.relativePath): \(error.localizedDescription)"
-                                return
-                            }
-                        }
-                        let item = state.runTask("Build \(row.project.title) (\(what), Simulator)",
-                                                 BuildScript.arguments(project: row.project.path, target: .iOS, output: output, allowDirty: allowDirty),
-                                                 environment: BuildScript.environment(profile: profile, iosSimulator: true))
-                        item.simulatorSDK = true
+                        state.buildForSimulator(project: row.project.path, title: "\(row.project.title) (\(what))", profile: profile, allowDirty: allowDirty)
                     } else if needsPassword {
                         // `unity build --profile` can't take keystore passwords; our build method can.
                         let project = URL(fileURLWithPath: row.project.path)
@@ -312,10 +302,12 @@ struct BuildSheet: View {
                         state.runTask("Build \(row.project.title) (\(what), signed)",
                                       BuildScript.arguments(project: row.project.path, target: target, output: output, allowDirty: allowDirty),
                                       environment: BuildScript.environment(profile: profile, keystorePassword: keystorePassword, aliasPassword: aliasPassword))
+                            .profile = profile
                     } else {
                         state.runTask("Build \(row.project.title) (\(what))",
                                       BuildTarget.arguments(project: row.project.path, target: target, profile: profile.isEmpty ? nil : profile,
                                                             output: output, allowDirty: allowDirty))
+                            .profile = profile.isEmpty ? nil : profile
                     }
                     dismiss()
                 }

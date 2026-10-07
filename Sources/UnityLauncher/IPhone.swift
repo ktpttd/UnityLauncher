@@ -251,3 +251,30 @@ extension AppState {
         }
     }
 }
+
+extension AppState {
+    /// Simulator-SDK build of `profile` through the launcher's build script; with `simulator`, runs it
+    /// there once the build succeeds.
+    @discardableResult
+    func buildForSimulator(project: String, title: String, profile: String, allowDirty: Bool = false,
+                           then simulator: IPhone.Simulator? = nil) -> TaskItem? {
+        let url = URL(fileURLWithPath: project)
+        if BuildScript.status(project: url) != .current {
+            do { try BuildScript.install(project: url) } catch {
+                errorMessage = "Couldn't add \(BuildScript.relativePath): \(error.localizedDescription)"
+                return nil
+            }
+        }
+        let command = BuildScript.simulatorBuild(project: project, profile: profile, allowDirty: allowDirty)
+        let item = runTask("Build \(title) (Simulator)", command.arguments, environment: command.environment)
+        item.simulatorSDK = true
+        item.profile = profile
+        if let simulator {
+            Task {
+                await item.task?.value
+                if item.state == .succeeded { runOnSimulator(buildFolder: URL(fileURLWithPath: command.output), simulator: simulator) }
+            }
+        }
+        return item
+    }
+}

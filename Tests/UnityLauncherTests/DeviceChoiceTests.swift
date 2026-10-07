@@ -83,3 +83,13 @@ let simctlJSON = #"""
     #expect(errors.first?.contains("libFirebaseCppAnalytics.a") == true)
     #expect(errors.count == 3)
 }
+
+/// Shared by the Build sheet's "Simulator build" and the Simulators section of a device build's menu.
+@Test func simulatorBuildCommand() {
+    let cmd = BuildScript.simulatorBuild(project: "/p", profile: "Assets/Settings/BuildProfiles/iOS_DEV.asset", allowDirty: false)
+    #expect(cmd.output == "/p/Builds/iOS-Simulator")
+    #expect(cmd.arguments == ["build", "/p", "--output-path", "/p/Builds/iOS-Simulator", "--target", "iOS",
+                              "--execute-method", "UnityLauncherBuild.Build"])
+    #expect(cmd.environment == ["UNITY_LAUNCHER_PROFILE": "Assets/Settings/BuildProfiles/iOS_DEV.asset",
+                                "UNITY_LAUNCHER_IOS_SDK": "simulator"])
+}

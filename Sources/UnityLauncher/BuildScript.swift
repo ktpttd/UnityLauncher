@@ -25,6 +25,13 @@ enum BuildScript {
             + (allowDirty ? ["--allow-dirty-build"] : [])
     }
 
+    /// `unity build` command for a Simulator-SDK build of `profile` into Builds/iOS-Simulator.
+    static func simulatorBuild(project: String, profile: String, allowDirty: Bool) -> (arguments: [String], environment: [String: String], output: String) {
+        let output = "\(project)/Builds/iOS-Simulator"
+        return (arguments(project: project, target: .iOS, output: output, allowDirty: allowDirty),
+                environment(profile: profile, iosSimulator: true), output)
+    }
+
     static func environment(profile: String, keystorePassword: String = "", aliasPassword: String = "",
                             iosSimulator: Bool = false) -> [String: String] {
         var env = ["UNITY_LAUNCHER_PROFILE": profile]

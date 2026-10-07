@@ -137,6 +137,19 @@ private struct TaskRow: View {
                                         Button(d.name) { run(on: d, output) }
                                     }
                                     if state.iosDevices.isEmpty { Text("No iPhone or iPad connected") }
+                                    if let profile = item.profile, let project = item.project, !state.simulators.isEmpty {
+                                        // This is a device build; a simulator needs a Simulator-SDK build first.
+                                        Section("Simulators (builds a Simulator version first)") {
+                                            ForEach(state.simulators) { sim in
+                                                Button("\(sim.name) — \(sim.runtime)") {
+                                                    ProjectPrefs.setLastDevice(sim.udid, for: project, kind: "simulator")
+                                                    let title = state.projects.first { $0.project.path == project }?.project.title
+                                                        ?? URL(fileURLWithPath: project).lastPathComponent
+                                                    state.buildForSimulator(project: project, title: title, profile: profile, then: sim)
+                                                }
+                                            }
+                                        }
+                                    }
                                     Divider()
                                     Button("Change Team ID…") {
                                         teamText = item.project.map(ProjectPrefs.teamID(for:)) ?? ""
