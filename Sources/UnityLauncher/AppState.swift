@@ -29,6 +29,8 @@ final class AppState {
     var report: InfoMessage?
     var tasks: [TaskItem] = []
     var showTasks = false
+    /// Project whose Build Report sheet is open (from the Tasks panel).
+    var buildReportFor: ProjectRow?
     var releaseSearch = ""
     var releaseStream = ReleaseStream.all
     var releasesLoading = false

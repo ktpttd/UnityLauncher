@@ -22,6 +22,7 @@ struct TasksView: View {
 }
 
 private struct TaskRow: View {
+    @Environment(AppState.self) private var state
     let item: TaskItem
     @State private var expanded = false
 
@@ -50,7 +51,9 @@ private struct TaskRow: View {
                 HStack {
                     Text(summary).font(.callout.weight(.semibold)).textSelection(.enabled)
                     if let output = item.output {
-                        Button("Show") { Mac.reveal(output.path) }.controlSize(.small)
+                        if let row = state.projects.first(where: { $0.project.path == item.project }) {
+                            Button("Build Report") { state.buildReportFor = row }.controlSize(.small)
+                        }
                         Button("Open Path") { Mac.open(buildOutputFolder(output)) }.controlSize(.small)
                     }
                 }

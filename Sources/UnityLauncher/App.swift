@@ -92,6 +92,7 @@ struct ContentView: View {
                 .keyboardShortcut("t", modifiers: [.command, .shift])
             }
         }
+        .sheet(item: $state.buildReportFor) { BuildReportSheet(row: $0) }
         .sheet(item: $state.report) { report in
             VStack(alignment: .leading) {
                 Text(report.title).font(.headline)

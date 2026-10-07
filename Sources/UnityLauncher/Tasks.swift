@@ -19,6 +19,8 @@ final class TaskItem: Identifiable {
     var summary: String?
     /// Build output to reveal in Finder.
     var output: URL?
+    /// Project a build task built, for its Build Report.
+    var project: String?
     @ObservationIgnored var task: Task<Void, Never>?
 
     init(title: String) { self.title = title }
@@ -70,6 +72,7 @@ extension AppState {
                 let url = URL(fileURLWithPath: args[i + 1])
                 let size = await Task.detached { Local.diskSize(url) }.value
                 item.output = url
+                item.project = args[1]
                 item.summary = "Output: \(url.lastPathComponent)" + (size.map { " · " + formatBytes($0) } ?? "")
             }
             if refreshAfter { await refresh() }

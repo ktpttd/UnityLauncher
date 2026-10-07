@@ -68,4 +68,5 @@ let provenanceJSON = """
     let summary = try #require(item.summary)
     #expect(summary.contains("Game.app"))
     #expect(summary.contains("KB"))
+    #expect(item.project == "/p") // lets the task open that project's Build Report
 }
