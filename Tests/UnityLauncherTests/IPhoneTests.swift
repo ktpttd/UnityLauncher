@@ -32,12 +32,13 @@ let devicectlJSON = #"""
 
 @Test func xcodebuildUsesWorkspaceOrProject() {
     let dd = URL(fileURLWithPath: "/b/DerivedData")
-    let ws = IPhone.xcodebuildArguments(project: URL(fileURLWithPath: "/b/Unity-iPhone.xcworkspace"), team: "ABCDE12345", derivedData: dd)
+    let ws = IPhone.xcodebuildArguments(project: URL(fileURLWithPath: "/b/Unity-iPhone.xcworkspace"), team: "ABCDE12345", derivedData: dd, configuration: "ReleaseForRunning")
     #expect(Array(ws.prefix(4)) == ["-workspace", "/b/Unity-iPhone.xcworkspace", "-scheme", "Unity-iPhone"])
     #expect(ws.contains("DEVELOPMENT_TEAM=ABCDE12345"))
     #expect(ws.contains("-allowProvisioningUpdates"))
+    #expect(ws.firstIndex(of: "-configuration").map { ws[$0 + 1] } == "ReleaseForRunning")
     #expect(ws.suffix(1) == ["build"])
-    let proj = IPhone.xcodebuildArguments(project: URL(fileURLWithPath: "/b/Unity-iPhone.xcodeproj"), team: "ABCDE12345", derivedData: dd)
+    let proj = IPhone.xcodebuildArguments(project: URL(fileURLWithPath: "/b/Unity-iPhone.xcodeproj"), team: "ABCDE12345", derivedData: dd, configuration: "ReleaseForRunning")
     #expect(proj.first == "-project")
 }
 
@@ -56,13 +57,14 @@ let devicectlJSON = #"""
 
 @Test func findsBuiltAppAndBundleID() throws {
     let dd = try tempDir().appendingPathComponent("DerivedData")
-    let app = dd.appendingPathComponent("Build/Products/Debug-iphoneos/Eggoo.app")
+    let app = dd.appendingPathComponent("Build/Products/ReleaseForRunning-iphoneos/Eggoo.app")
     try FileManager.default.createDirectory(at: app, withIntermediateDirectories: true)
     let plist = try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": "com.silvertiger.eggoo"], format: .xml, options: 0)
     try plist.write(to: app.appendingPathComponent("Info.plist"))
-    #expect(IPhone.builtApp(in: dd)?.lastPathComponent == "Eggoo.app")
+    #expect(IPhone.builtApp(in: dd, configuration: "ReleaseForRunning")?.lastPathComponent == "Eggoo.app")
+    #expect(IPhone.builtApp(in: dd, configuration: "Debug") == nil)
     #expect(IPhone.bundleID(of: app) == "com.silvertiger.eggoo")
-    #expect(IPhone.builtApp(in: try tempDir()) == nil)
+    #expect(IPhone.builtApp(in: try tempDir(), configuration: "ReleaseForRunning") == nil)
 }
 
 @Test func teamIDIsRememberedPerProject() {
@@ -90,4 +92,29 @@ let devicectlJSON = #"""
 /// and Unity's next build into the same folder wipes the cache.
 @Test func derivedDataSitsBesideTheBuildFolder() {
     #expect(IPhone.derivedData(for: URL(fileURLWithPath: "/p/Builds/iOS")).path == "/p/Builds/iOS-DerivedData")
+}
+
+/// Debug builds of Unity's iOS player overflow the stack at launch (real crash: EXC_BAD_ACCESS in
+/// UnityFramework's stack guard). Xcode's Run uses the scheme's LaunchAction configuration, so do we.
+@Test func usesTheSchemesRunConfiguration() throws {
+    let build = try tempDir()
+    let scheme = build.appendingPathComponent("Unity-iPhone.xcodeproj/xcshareddata/xcschemes/Unity-iPhone.xcscheme")
+    try write("""
+    <Scheme>
+       <BuildAction parallelizeBuildables = "YES">
+       </BuildAction>
+       <TestAction
+          buildConfiguration = "Debug">
+       </TestAction>
+       <LaunchAction
+          buildConfiguration = "ReleaseForRunning"
+          launchStyle = "0">
+       </LaunchAction>
+       <ArchiveAction
+          buildConfiguration = "Release">
+       </ArchiveAction>
+    </Scheme>
+    """, to: scheme)
+    #expect(IPhone.runConfiguration(buildFolder: build) == "ReleaseForRunning")
+    #expect(IPhone.runConfiguration(buildFolder: try tempDir()) == "Release")
 }

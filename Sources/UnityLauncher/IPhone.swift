@@ -55,9 +55,30 @@ enum IPhone {
         id.wholeMatch(of: /[A-Z0-9]{10}/) != nil
     }
 
-    static func xcodebuildArguments(project: URL, team: String, derivedData: URL) -> [String] {
+    /// The configuration Xcode's Run uses: the scheme's LaunchAction (Unity sets ReleaseForRunning).
+    /// Unity's Debug configuration overflows the stack at launch when run outside Xcode.
+    static func runConfiguration(buildFolder: URL) -> String {
+        let fm = FileManager.default
+        let projects = ((try? fm.contentsOfDirectory(at: buildFolder, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.pathExtension == "xcodeproj" }
+        for project in projects {
+            let schemes = project.appendingPathComponent("xcshareddata/xcschemes")
+            let files = ((try? fm.contentsOfDirectory(at: schemes, includingPropertiesForKeys: nil)) ?? [])
+                .filter { $0.pathExtension == "xcscheme" }
+                .sorted { $0.lastPathComponent == "Unity-iPhone.xcscheme" && $1.lastPathComponent != "Unity-iPhone.xcscheme" }
+            for file in files {
+                if let text = try? String(contentsOf: file, encoding: .utf8),
+                   let m = text.firstMatch(of: /<LaunchAction\s+buildConfiguration\s*=\s*"([^"]+)"/) {
+                    return String(m.1)
+                }
+            }
+        }
+        return "Release"
+    }
+
+    static func xcodebuildArguments(project: URL, team: String, derivedData: URL, configuration: String) -> [String] {
         [project.pathExtension == "xcworkspace" ? "-workspace" : "-project", project.path,
-         "-scheme", "Unity-iPhone", "-configuration", "Debug", "-destination", "generic/platform=iOS",
+         "-scheme", "Unity-iPhone", "-configuration", configuration, "-destination", "generic/platform=iOS",
          "-derivedDataPath", derivedData.path, "-allowProvisioningUpdates", "-quiet",
          "DEVELOPMENT_TEAM=\(team)", "build"]
     }
@@ -79,8 +100,8 @@ enum IPhone {
         buildFolder.deletingLastPathComponent().appendingPathComponent(buildFolder.lastPathComponent + "-DerivedData")
     }
 
-    static func builtApp(in derivedData: URL) -> URL? {
-        let products = derivedData.appendingPathComponent("Build/Products/Debug-iphoneos")
+    static func builtApp(in derivedData: URL, configuration: String) -> URL? {
+        let products = derivedData.appendingPathComponent("Build/Products/\(configuration)-iphoneos")
         return ((try? FileManager.default.contentsOfDirectory(at: products, includingPropertiesForKeys: nil)) ?? [])
             .first { $0.pathExtension == "app" }
     }
@@ -117,9 +138,12 @@ extension AppState {
 
             item.log.append("Building and signing with Xcode (several minutes the first time)…")
             let derivedData = IPhone.derivedData(for: buildFolder)
-            let build = await Shell.run(xcrun, ["xcodebuild"] + IPhone.xcodebuildArguments(project: project, team: team, derivedData: derivedData),
+            let configuration = IPhone.runConfiguration(buildFolder: buildFolder)
+            item.log.append("Configuration: \(configuration)")
+            let build = await Shell.run(xcrun, ["xcodebuild"] + IPhone.xcodebuildArguments(project: project, team: team, derivedData: derivedData,
+                                                                                           configuration: configuration),
                                         environment: env)
-            guard build.status == 0, let app = IPhone.builtApp(in: derivedData) else {
+            guard build.status == 0, let app = IPhone.builtApp(in: derivedData, configuration: configuration) else {
                 item.failureDetails = IPhone.errors(fromXcodebuild: build.output)
                 throw StepError(message: "xcodebuild failed.")
             }
@@ -133,7 +157,9 @@ extension AppState {
 
             if let bundleID = IPhone.bundleID(of: app) {
                 item.log.append("Launching \(bundleID)")
-                _ = await Shell.run(xcrun, ["devicectl", "device", "process", "launch", "--device", device.udid, bundleID], environment: env)
+                let launch = await Shell.run(xcrun, ["devicectl", "device", "process", "launch", "--device", device.udid, bundleID], environment: env)
+                // Installed either way; a locked phone just means "tap the icon".
+                item.log.append(launch.status == 0 ? "Launched." : "Couldn't launch it (is the iPhone unlocked?). Open it from the home screen.")
             }
             item.summary = "Installed on \(device.name)"
         }
