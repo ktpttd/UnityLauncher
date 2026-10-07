@@ -13,6 +13,24 @@ Not affiliated with Unity Technologies.
   ```
 - Xcode 16+ to build
 
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ktpttd/UnityLauncher/main/scripts/install.sh | bash
+```
+
+This downloads the latest release into `/Applications` (or `~/Applications`) and opens it. Run it again to update. Universal app, macOS 14+.
+
+The app is ad-hoc signed, not notarized. Installing with the command above works because `curl` doesn't mark files as downloaded from the internet. If you download `UnityLauncher.zip` from [Releases](https://github.com/ktpttd/UnityLauncher/releases) in a browser instead, macOS blocks the first launch: open System Settings → Privacy & Security and choose **Open Anyway**.
+
+## Release
+
+```bash
+scripts/release.sh 1.1.0
+```
+
+From a clean, pushed `main`, the script runs the tests, makes a universal build stamped with the version, tags `v1.1.0`, and publishes a GitHub release with `UnityLauncher.zip`, which `install.sh` downloads.
+
 ## Build & run
 
 ```bash

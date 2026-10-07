@@ -1,14 +1,22 @@
 #!/bin/sh
 # Builds build/UnityLauncher.app (release, ad-hoc signed).
+#   VERSION=1.2.0   version shown in Finder/About (default 1.0)
+#   UNIVERSAL=1     arm64 + x86_64 binary (releases)
 set -eu
 cd "$(dirname "$0")/.."
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 
-swift build -c release
+if [ "${UNIVERSAL:-0}" = 1 ]; then
+    swift build -c release --arch arm64 --arch x86_64
+    BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/UnityLauncher"
+else
+    swift build -c release
+    BIN=.build/release/UnityLauncher
+fi
 APP=build/UnityLauncher.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/UnityLauncher "$APP/Contents/MacOS/UnityLauncher"
+cp "$BIN" "$APP/Contents/MacOS/UnityLauncher"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -39,6 +47,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
+
+plutil -replace CFBundleShortVersionString -string "${VERSION:-1.0}" "$APP/Contents/Info.plist"
+plutil -replace CFBundleVersion -string "$(git rev-list --count HEAD 2>/dev/null || echo 1)" "$APP/Contents/Info.plist"
 
 codesign --force --sign - "$APP"
 echo "Built $APP"
