@@ -69,8 +69,9 @@ UNITY_INTEGRATION=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swi
 **Tasks panel (⇧⌘T)**
 - Long operations (installs, builds, tests, upgrades, verify) stream progress and logs, and you can stop them.
 
-**Tools menu**
+**Tools tab**
 - Editor, crash, and Hub logs; Asset Store downloads; Unity and GI caches
+- Locate a Unity editor installed outside Unity Hub
 - ADB logcat (uses Unity's bundled adb when available)
 - Unity Doctor
 

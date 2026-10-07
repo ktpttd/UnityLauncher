@@ -12,21 +12,6 @@ struct UnityLauncherApp: App {
                 .environment(state)
                 .frame(minWidth: 820, minHeight: 420)
         }
-        .commands {
-            CommandMenu("Tools") {
-                ForEach(Local.Folder.allCases) { folder in
-                    Button(folder.rawValue) { Mac.open(folder.url) }
-                }
-                Divider()
-                Button("Locate Unity Editor…") {
-                    if let url = Mac.chooseApp(message: "Choose a Unity.app to register") {
-                        Task { await state.cliAction(["editors", "add", url.path]) }
-                    }
-                }
-                Button("ADB Logcat (Unity)") { state.adbLogcat() }
-                Button("Unity Doctor") { Task { await state.doctor() } }
-            }
-        }
         MenuBarExtra("Unity Launcher", systemImage: "cube", isInserted: $showMenuBar) {
             MenuBarView().environment(state)
         }
@@ -67,6 +52,7 @@ struct ContentView: View {
                 EditorsView().tabItem { Text("Editors") }.tag("editors")
                 ReleasesView().tabItem { Text("Releases") }.tag("releases")
                 LiveView().tabItem { Text("Live") }.tag("live")
+                ToolsView().tabItem { Text("Tools") }.tag("tools")
             }
         }
         .task {
