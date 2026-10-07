@@ -38,6 +38,24 @@ enum BuildErrors {
 }
 
 enum Xcode {
+    /// Unity disables Burst for simulator builds, so lib_burst_generated.* isn't generated, but the
+    /// project can still list it and xcodebuild then stops on the missing input. Drops those lines
+    /// (each reference is one self-contained pbxproj line). Returns whether anything was removed.
+    @discardableResult
+    static func stripMissingBurst(buildFolder: URL) -> Bool {
+        let fm = FileManager.default
+        guard !fm.fileExists(atPath: buildFolder.appendingPathComponent("Libraries/lib_burst_generated.cpp").path) else { return false }
+        var removed = false
+        for project in ((try? fm.contentsOfDirectory(at: buildFolder, includingPropertiesForKeys: nil)) ?? []) where project.pathExtension == "xcodeproj" {
+            let pbxproj = project.appendingPathComponent("project.pbxproj")
+            guard let text = try? String(contentsOf: pbxproj, encoding: .utf8), text.contains("lib_burst_generated") else { continue }
+            let kept = text.split(separator: "\n", omittingEmptySubsequences: false).filter { !$0.contains("lib_burst_generated") }
+            try? kept.joined(separator: "\n").write(to: pbxproj, atomically: true, encoding: .utf8)
+            removed = true
+        }
+        return removed
+    }
+
     /// The Xcode project of an iOS build folder; the workspace when CocoaPods created one.
     static func project(in folder: URL) -> URL? {
         let items = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []

@@ -219,6 +219,9 @@ extension AppState {
             let configuration = IPhone.runConfiguration(buildFolder: buildFolder)
             let derivedData = IPhone.derivedData(for: buildFolder)
             item.log.append("Simulator: \(simulator.name) (\(simulator.runtime)), configuration \(configuration)")
+            if Xcode.stripMissingBurst(buildFolder: buildFolder) {
+                item.log.append("Burst is off for simulators; removed its missing files from the Xcode project.")
+            }
             item.log.append("Building for the simulator…")
             let build = await Shell.run(xcrun, ["xcodebuild"] + IPhone.xcodebuildArguments(project: project, team: nil, derivedData: derivedData,
                                                                                            configuration: configuration, simulator: simulator.udid),

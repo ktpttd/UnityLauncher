@@ -93,3 +93,31 @@ let simctlJSON = #"""
     #expect(cmd.environment == ["UNITY_LAUNCHER_PROFILE": "Assets/Settings/BuildProfiles/iOS_DEV.asset",
                                 "UNITY_LAUNCHER_IOS_SDK": "simulator"])
 }
+
+/// Real pbxproj lines from Capy_2D's simulator build: Burst is disabled for simulators so its files
+/// aren't generated, yet the project still lists them and xcodebuild stops ("Build input file cannot be found").
+let burstProject = """
+		01F967D36F74C7C4205C1BD6 /* lib_burst_generated.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DAB61E49F0B27D71CDA3B02F /* lib_burst_generated.a */; };
+		9BA70426A90DB33FFDF35A71 /* lib_burst_generated.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 17B8DA4C2189239C555CC0EC /* lib_burst_generated.cpp */; };
+		AAAA0000 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = BBBB0000 /* main.mm */; };
+				9BA70426A90DB33FFDF35A71 /* lib_burst_generated.cpp in Sources */,
+				AAAA0000 /* main.mm in Sources */,
+"""
+
+@Test func stripsMissingBurstOutputFromSimulatorProjects() throws {
+    let build = try tempDir()
+    let pbxproj = build.appendingPathComponent("Unity-iPhone.xcodeproj/project.pbxproj")
+    try write(burstProject, to: pbxproj)
+    #expect(Xcode.stripMissingBurst(buildFolder: build))
+    let text = try String(contentsOf: pbxproj, encoding: .utf8)
+    #expect(!text.contains("lib_burst_generated"))
+    #expect(text.components(separatedBy: "main.mm in Sources").count == 3) // both main.mm lines kept
+}
+
+@Test func keepsBurstWhenItWasGenerated() throws {
+    let build = try tempDir()
+    try write(burstProject, to: build.appendingPathComponent("Unity-iPhone.xcodeproj/project.pbxproj"))
+    try write("// burst", to: build.appendingPathComponent("Libraries/lib_burst_generated.cpp"))
+    #expect(!Xcode.stripMissingBurst(buildFolder: build))
+    #expect(try String(contentsOf: build.appendingPathComponent("Unity-iPhone.xcodeproj/project.pbxproj"), encoding: .utf8) == burstProject)
+}
