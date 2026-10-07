@@ -32,6 +32,12 @@ struct BuildReport: Equatable {
         var mode = Mode.none
         for raw in log.split(separator: "\n", omittingEmptySubsequences: false) {
             let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.hasPrefix("Build completed"),
+               let match = line.firstMatch(of: /\((\d+) ms\)$/),
+               let milliseconds = Double(match.1), !reports.isEmpty {
+                reports[reports.count - 1].stats.append(Stat(
+                    category: "Build time", size: formatDuration(milliseconds / 1000), percent: nil))
+            }
             if line.hasPrefix("Uncompressed usage by category") {
                 current = BuildReport(); mode = .stats; continue
             }
@@ -162,7 +168,7 @@ struct BuildReportSheet: View {
             }
             if let found {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 2) {
-                    ForEach(found.report.stats) { s in
+                    ForEach(found.report.stats.filter { provenance == nil || $0.category != "Build time" }) { s in
                         GridRow {
                             Text(s.category).fontWeight(s.percent == nil ? .bold : .regular)
                             Text(s.size).monospacedDigit()

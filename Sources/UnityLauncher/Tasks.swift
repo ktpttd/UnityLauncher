@@ -84,6 +84,11 @@ func formatDuration(_ seconds: TimeInterval) -> String {
     return h > 0 ? "\(h)h \(m)m \(sec)s" : m > 0 ? "\(m)m \(sec)s" : "\(sec)s"
 }
 
+func buildOutputFolder(_ output: URL) -> URL {
+    (try? output.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+        ? output : output.deletingLastPathComponent()
+}
+
 func formatBytes(_ bytes: Int64) -> String {
     ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
 }

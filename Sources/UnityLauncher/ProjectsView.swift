@@ -3,6 +3,7 @@ import SwiftUI
 struct ProjectsView: View {
     @Environment(AppState.self) private var state
     @State private var selection: ProjectRow.ID?
+    @State private var sortOrder: [KeyPathComparator<ProjectRow>] = []
     @State private var editingArgs: ProjectRow?
     @State private var argsText = ""
     @State private var confirmKill: ProjectRow?
@@ -17,8 +18,9 @@ struct ProjectsView: View {
 
     var body: some View {
         @Bindable var state = state
-        Table(state.filteredProjects, selection: $selection) {
-            TableColumn("Name") { row in
+        let projects = state.filteredProjects
+        Table(sortOrder.isEmpty ? projects : projects.sorted(using: sortOrder), selection: $selection, sortOrder: $sortOrder) {
+            TableColumn("Name", value: \.project.title) { row in
                 HStack(spacing: 4) {
                     if row.pid != nil { Image(systemName: "circle.fill").foregroundStyle(.green).font(.system(size: 7)).help("Running") }
                     if row.project.isFavorite == true { Image(systemName: "pin.fill").foregroundStyle(.orange).font(.caption) }
@@ -27,23 +29,23 @@ struct ProjectsView: View {
                 .foregroundStyle(row.exists ? .primary : .secondary)
                 .help(row.exists ? row.project.path : "Folder not found")
             }
-            TableColumn("Version") { row in
+            TableColumn("Version", value: \.project.version) { row in
                 Text(row.project.version)
                     .foregroundStyle(state.installedVersions.contains(row.project.version) ? Color.primary : Color.red)
                     .help(state.installedVersions.contains(row.project.version) ? "" : "Editor not installed")
             }
             .width(min: 80, ideal: 95)
-            TableColumn("Branch") { row in Text(row.branch ?? "") }
+            TableColumn("Branch", value: \.sortableBranch) { row in Text(row.branch ?? "") }
             .width(min: 60, ideal: 100)
-            TableColumn("Platform") { row in Text(row.project.buildTarget ?? "") }
+            TableColumn("Platform", value: \.sortablePlatform) { row in Text(row.project.buildTarget ?? "") }
             .width(min: 60, ideal: 90)
-            TableColumn("SRP") { row in Text(row.project.renderPipeline ?? "") }
+            TableColumn("SRP", value: \.sortableSRP) { row in Text(row.project.renderPipeline ?? "") }
             .width(min: 40, ideal: 70)
-            TableColumn("Modified") { row in
+            TableColumn("Modified", value: \.sortableModified) { row in
                 Text(row.project.modified?.formatted(.relative(presentation: .named)) ?? "")
             }
             .width(min: 70, ideal: 100)
-            TableColumn("Path") { row in Text(row.project.path).foregroundStyle(.secondary).truncationMode(.head) }
+            TableColumn("Path", value: \.project.path) { row in Text(row.project.path).foregroundStyle(.secondary).truncationMode(.head) }
         }
         .contextMenu(forSelectionType: ProjectRow.ID.self) { ids in
             if let row = state.projects.first(where: { ids.contains($0.id) }) { menu(for: row) }

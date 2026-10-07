@@ -7,6 +7,11 @@ struct ProjectRow: Identifiable, Hashable, Sendable {
     let exists: Bool
     let branch: String?
     let pid: Int32?
+
+    var sortableBranch: String { branch ?? "" }
+    var sortablePlatform: String { project.buildTarget ?? "" }
+    var sortableSRP: String { project.renderPipeline ?? "" }
+    var sortableModified: String { String(format: "%020.0f", project.lastModified ?? 0) }
 }
 
 @MainActor @Observable

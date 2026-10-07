@@ -51,6 +51,7 @@ private struct TaskRow: View {
                     Text(summary).font(.callout.weight(.semibold)).textSelection(.enabled)
                     if let output = item.output {
                         Button("Show") { Mac.reveal(output.path) }.controlSize(.small)
+                        Button("Open Path") { Mac.open(buildOutputFolder(output)) }.controlSize(.small)
                     }
                 }
             }

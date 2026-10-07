@@ -40,6 +40,14 @@ Used Assets and files from the Resources folder, sorted by uncompressed size:
     #expect(last.items[0].size == "3.0 mb")
     #expect(last.items[0].percent == "20.7%")
     #expect(last.items[0].path == "Assets/Textures/Big Background.png")
+    #expect(reports[0].stats.last == .init(category: "Build time", size: "12s", percent: nil))
+    #expect(!last.stats.contains { $0.category == "Build time" })
+}
+
+@Test func reportWithoutCompletionLineHasNoBuildTime() {
+    let log = sampleLog.replacingOccurrences(of: "Build completed with a result of 'Succeeded' in 12 seconds (12000 ms)\n", with: "")
+    let report = BuildReport.parseAll(log)[0]
+    #expect(!report.stats.contains { $0.category == "Build time" })
 }
 
 @Test func noReportInLogYieldsEmpty() {

@@ -78,6 +78,15 @@ func frame(_ json: String) -> Frame { try! JSONDecoder().decode(Frame.self, from
     #expect(BuildTarget.webGL.defaultOutput(project: "/p", product: "Game") == "/p/Builds/WebGL")
 }
 
+@Test func buildOutputFolderUsesDirectoryOrParentOfFile() throws {
+    let folder = try tempDir().appendingPathComponent("Builds/iOS", isDirectory: true)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let file = folder.appendingPathComponent("Game.apk")
+    try Data().write(to: file)
+    #expect(buildOutputFolder(folder) == folder)
+    #expect(buildOutputFolder(file) == folder)
+}
+
 /// Product names like "Eggoo : Roguelike" must not put ':' or '/' into file names.
 @Test func buildOutputSanitizesProductName() {
     #expect(BuildTarget.macOS.defaultOutput(project: "/p", product: "Eggoo : Rogue/like") == "/p/Builds/StandaloneOSX/Eggoo - Rogue-like.app")
