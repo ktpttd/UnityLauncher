@@ -62,8 +62,9 @@ private struct TaskRow: View {
             }
             .font(.caption).foregroundStyle(.secondary)
             if let summary = item.summary {
-                HStack {
-                    Text(summary).font(.callout.weight(.semibold)).textSelection(.enabled)
+                Text(summary).font(.callout.weight(.semibold)).textSelection(.enabled)
+                // Stacked: the inspector is too narrow for a row of buttons.
+                VStack(alignment: .leading, spacing: 4) {
                     if let output = item.output {
                         if let row = state.projects.first(where: { $0.project.path == item.project }) {
                             Button("Build Report") { state.buildReportFor = row }.controlSize(.small)
