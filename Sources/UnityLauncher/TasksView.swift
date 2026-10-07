@@ -63,8 +63,8 @@ private struct TaskRow: View {
             .font(.caption).foregroundStyle(.secondary)
             if let summary = item.summary {
                 Text(summary).font(.callout.weight(.semibold)).textSelection(.enabled)
-                // Stacked: the inspector is too narrow for a row of buttons.
-                VStack(alignment: .leading, spacing: 4) {
+                // Stacked and right-aligned: the inspector is too narrow for a row of buttons.
+                VStack(alignment: .trailing, spacing: 4) {
                     if let output = item.output {
                         if let row = state.projects.first(where: { $0.project.path == item.project }) {
                             Button("Build Report") { state.buildReportFor = row }.controlSize(.small)
@@ -111,6 +111,7 @@ private struct TaskRow: View {
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             if item.state == .running {
                 if let pct = item.pct { ProgressView(value: min(pct, 100), total: 100) }

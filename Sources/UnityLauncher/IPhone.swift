@@ -73,6 +73,12 @@ enum IPhone {
         return found
     }
 
+    /// Beside the build folder, not in it: keeps GBs of Xcode cache out of the output size and safe
+    /// from Unity replacing the folder on the next build.
+    static func derivedData(for buildFolder: URL) -> URL {
+        buildFolder.deletingLastPathComponent().appendingPathComponent(buildFolder.lastPathComponent + "-DerivedData")
+    }
+
     static func builtApp(in derivedData: URL) -> URL? {
         let products = derivedData.appendingPathComponent("Build/Products/Debug-iphoneos")
         return ((try? FileManager.default.contentsOfDirectory(at: products, includingPropertiesForKeys: nil)) ?? [])
@@ -110,7 +116,7 @@ extension AppState {
             item.log.append("Device: \(device.name)")
 
             item.log.append("Building and signing with Xcode (several minutes the first time)…")
-            let derivedData = buildFolder.appendingPathComponent("DerivedData")
+            let derivedData = IPhone.derivedData(for: buildFolder)
             let build = await Shell.run(xcrun, ["xcodebuild"] + IPhone.xcodebuildArguments(project: project, team: team, derivedData: derivedData),
                                         environment: env)
             guard build.status == 0, let app = IPhone.builtApp(in: derivedData) else {

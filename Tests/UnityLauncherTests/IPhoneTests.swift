@@ -85,3 +85,9 @@ let devicectlJSON = #"""
                                                           IPhone.Team(id: "2NSABCDE12", name: "kai nguyen (Personal Team)")])
     #expect(IPhone.teams(fromXcodeDefaults: [:]).isEmpty)
 }
+
+/// Xcode's DerivedData (GBs) must not live inside the build output, or it inflates the reported size
+/// and Unity's next build into the same folder wipes the cache.
+@Test func derivedDataSitsBesideTheBuildFolder() {
+    #expect(IPhone.derivedData(for: URL(fileURLWithPath: "/p/Builds/iOS")).path == "/p/Builds/iOS-DerivedData")
+}
