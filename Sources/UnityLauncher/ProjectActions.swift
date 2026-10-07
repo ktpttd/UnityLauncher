@@ -37,6 +37,8 @@ struct BuildProfile: Hashable, Identifiable {
     let path: String
     /// nil for platforms the Build sheet doesn't list (consoles, XR…).
     let target: BuildTarget?
+    /// Android profile that outputs an App Bundle (.aab) instead of an APK.
+    var appBundle = false
 }
 
 enum ProjectSheet: Identifiable {
@@ -168,6 +170,11 @@ struct BuildSheet: View {
     }
 
     private var isUnity6: Bool { (UnityVersion(row.project.version)?.major ?? 0) >= 6000 }
+
+    private var defaultOutput: String {
+        target.defaultOutput(project: row.project.path, product: state.player(row).product,
+                             appBundle: profiles.first { $0.path == profile }?.appBundle ?? false)
+    }
     /// Batch builds can't open a project the Editor already has open.
     private var isOpen: Bool { state.projects.first { $0.id == row.id }?.pid != nil }
 
@@ -237,15 +244,16 @@ struct BuildSheet: View {
         .formStyle(.grouped)
         .frame(width: 520)
         .onChange(of: target, initial: true) {
-            output = target.defaultOutput(project: row.project.path, product: state.player(row).product)
+            output = defaultOutput
             // Keep the profile only if it builds this target.
             if let current = profiles.first(where: { $0.path == profile }), current.target != target {
                 profile = profiles.first { $0.target == target }?.path ?? ""
             }
         }
         .onChange(of: profile) {
-            // A profile decides its platform.
+            // A profile decides its platform, and for Android whether the output is an .aab.
             if let t = profiles.first(where: { $0.path == profile })?.target, t != target { target = t }
+            output = defaultOutput
         }
         .task { await loadProfiles() }
         .task(id: profile) {

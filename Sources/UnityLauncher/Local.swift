@@ -109,7 +109,11 @@ enum Local {
                   let name = head.firstMatch(of: /m_Name: (.+)/)?.1 else { continue }
             let target = head.firstMatch(of: /m_BuildTarget: (\d+)/).flatMap { Int($0.1) }.flatMap(BuildTarget.init(unityID:))
             let relative = "Assets" + url.standardizedFileURL.path.dropFirst(assets.standardizedFileURL.path.count)
-            found.append(BuildProfile(profile: String(name).trimmingCharacters(in: .whitespaces), path: relative, target: target))
+            // The App Bundle flag sits at the end of the file, past the header read above.
+            let appBundle = target == .android
+                && ((try? String(contentsOf: url, encoding: .utf8))?.contains("m_BuildAppBundle: 1") ?? false)
+            found.append(BuildProfile(profile: String(name).trimmingCharacters(in: .whitespaces), path: relative,
+                                      target: target, appBundle: appBundle))
         }
         return found.sorted { $0.profile.localizedCaseInsensitiveCompare($1.profile) == .orderedAscending }
     }

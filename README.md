@@ -69,6 +69,9 @@ UNITY_INTEGRATION=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swi
 
 **Tasks panel (⇧⌘T)**
 - Long operations (installs, builds, tests, upgrades, verify) stream progress and logs, and you can stop them.
+- Finished builds show time and output size, with Build Report, Open Path, Open in Xcode (iOS) and Install on Device (Android APK: installs on the first connected device and launches it).
+- Failed builds show the log lines that explain why (compile errors, signing, Gradle).
+- Tasks that take 20 seconds or more post a macOS notification when they finish.
 
 **Tools tab**
 - Editor, crash, and Hub logs; Asset Store downloads; Unity and GI caches

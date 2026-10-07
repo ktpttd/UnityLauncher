@@ -55,6 +55,12 @@ private struct TaskRow: View {
                             Button("Build Report") { state.buildReportFor = row }.controlSize(.small)
                         }
                         Button("Open Path") { Mac.open(buildOutputFolder(output)) }.controlSize(.small)
+                        if output.pathExtension == "apk" {
+                            Button("Install on Device") { state.installOnDevice(output) }.controlSize(.small)
+                        } else if output.pathExtension == "aab" {
+                            Button("Install on Device") {}.controlSize(.small).disabled(true)
+                                .help("App Bundles (.aab) can't be installed directly. Build an APK profile such as Android_DEV to test on a device.")
+                        }
                         if let xcode = Xcode.project(in: output) {
                             Button("Open in Xcode") { NSWorkspace.shared.open(xcode) }.controlSize(.small)
                         }

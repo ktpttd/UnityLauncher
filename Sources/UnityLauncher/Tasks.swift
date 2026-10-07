@@ -156,14 +156,14 @@ enum BuildTarget: String, CaseIterable, Identifiable {
     /// `unity build --list-targets`: everything except desktop needs `--profile` or `--execute-method`.
     var needsProfile: Bool { ![.macOS, .windows, .linux].contains(self) }
 
-    func defaultOutput(project: String, product: String) -> String {
+    func defaultOutput(project: String, product: String, appBundle: Bool = false) -> String {
         let name = product.replacingOccurrences(of: ":", with: "-").replacingOccurrences(of: "/", with: "-")
         let dir = "\(project)/Builds/\(rawValue)"
         return switch self {
         case .macOS: "\(dir)/\(name).app"
         case .windows: "\(dir)/\(name).exe"
         case .linux: "\(dir)/\(name).x86_64"
-        case .android: "\(dir)/\(name).apk"
+        case .android: "\(dir)/\(name).\(appBundle ? "aab" : "apk")"
         case .iOS, .webGL: dir // Xcode project / web folder
         }
     }
