@@ -25,9 +25,12 @@ enum BuildScript {
             + (allowDirty ? ["--allow-dirty-build"] : [])
     }
 
-    static func environment(profile: String, keystorePassword: String, aliasPassword: String) -> [String: String] {
-        var env = ["UNITY_LAUNCHER_PROFILE": profile, "UNITY_LAUNCHER_KEYSTORE_PASS": keystorePassword]
+    static func environment(profile: String, keystorePassword: String = "", aliasPassword: String = "",
+                            iosSimulator: Bool = false) -> [String: String] {
+        var env = ["UNITY_LAUNCHER_PROFILE": profile]
+        if !keystorePassword.isEmpty { env["UNITY_LAUNCHER_KEYSTORE_PASS"] = keystorePassword }
         if !aliasPassword.isEmpty { env["UNITY_LAUNCHER_KEYALIAS_PASS"] = aliasPassword }
+        if iosSimulator { env["UNITY_LAUNCHER_IOS_SDK"] = "simulator" }
         return env
     }
 
@@ -62,14 +65,33 @@ enum BuildScript {
                 PlayerSettings.Android.keyaliasPass = string.IsNullOrEmpty(aliasPass) ? keystorePass : aliasPass;
             }
 
-            BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerWithProfileOptions
+            // iOS Simulator builds switch the SDK for this build only, then put the profile back.
+            // Arm64 too: Unity defaults simulator builds to x86_64, which Apple-silicon simulators can't run.
+            iOSSdkVersion? previousSdk = null;
+            AppleMobileArchitectureSimulator? previousArch = null;
+            if (Environment.GetEnvironmentVariable("UNITY_LAUNCHER_IOS_SDK") == "simulator")
             {
-                buildProfile = profile,
-                locationPathName = output,
-                options = BuildOptions.None,
-            });
-            if (report.summary.result != BuildResult.Succeeded)
-                throw new Exception("Unity Launcher: build " + report.summary.result);
+                previousSdk = PlayerSettings.iOS.sdkVersion;
+                previousArch = PlayerSettings.iOS.simulatorSdkArchitecture;
+                PlayerSettings.iOS.sdkVersion = iOSSdkVersion.SimulatorSDK;
+                PlayerSettings.iOS.simulatorSdkArchitecture = AppleMobileArchitectureSimulator.ARM64;
+            }
+            try
+            {
+                BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerWithProfileOptions
+                {
+                    buildProfile = profile,
+                    locationPathName = output,
+                    options = BuildOptions.None,
+                });
+                if (report.summary.result != BuildResult.Succeeded)
+                    throw new Exception("Unity Launcher: build " + report.summary.result);
+            }
+            finally
+            {
+                if (previousSdk.HasValue) PlayerSettings.iOS.sdkVersion = previousSdk.Value;
+                if (previousArch.HasValue) PlayerSettings.iOS.simulatorSdkArchitecture = previousArch.Value;
+            }
         }
 
         static string? Argument(string name)

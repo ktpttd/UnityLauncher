@@ -31,6 +31,10 @@ final class AppState {
     var showTasks = false
     /// Project whose Build Report sheet is open (from the Tasks panel).
     var buildReportFor: ProjectRow?
+    /// Devices to run builds on, refreshed when a finished build shows up in the Tasks panel.
+    var iosDevices: [IPhone.Device] = []
+    var simulators: [IPhone.Simulator] = []
+    var androidDevices: [Android.Device] = []
     var releaseSearch = ""
     var releaseStream = ReleaseStream.all
     var releasesLoading = false

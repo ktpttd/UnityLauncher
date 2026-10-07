@@ -27,17 +27,47 @@ private struct TaskRow: View {
     @State private var expanded = false
     @State private var askingTeam = false
     @State private var teamText = ""
+    /// iPhone waiting for a Team ID before installing.
+    @State private var pendingDevice: IPhone.Device?
 
-    /// Installs on an iPhone, asking for the project's Apple Team ID the first time.
-    private func installOnIPhone(_ buildFolder: URL, changeTeam: Bool = false) {
+    /// Last device used for this project (per kind), else the first one available.
+    private func preferred<T: Identifiable>(_ devices: [T], kind: String) -> T? where T.ID == String {
+        let last = item.project.flatMap { ProjectPrefs.lastDevice(for: $0, kind: kind) }
+        return devices.first { $0.id == last } ?? devices.first
+    }
+
+    /// Physical iPhone/iPad: signing needs the project's Team ID, asked for the first time.
+    private func run(on device: IPhone.Device, _ buildFolder: URL, changeTeam: Bool = false) {
         guard let project = item.project else { return }
+        ProjectPrefs.setLastDevice(device.udid, for: project, kind: "ios")
         let team = ProjectPrefs.teamID(for: project)
         if changeTeam || !IPhone.isValidTeamID(team) {
             teamText = team
+            pendingDevice = device
             askingTeam = true
         } else {
-            state.installOnIPhone(buildFolder: buildFolder, team: team)
+            state.installOnIPhone(buildFolder: buildFolder, team: team, device: device)
         }
+    }
+
+    private func run(on simulator: IPhone.Simulator, _ buildFolder: URL) {
+        if let project = item.project { ProjectPrefs.setLastDevice(simulator.udid, for: project, kind: "simulator") }
+        state.runOnSimulator(buildFolder: buildFolder, simulator: simulator)
+    }
+
+    private func install(_ apk: URL, on device: Android.Device) {
+        if let project = item.project { ProjectPrefs.setLastDevice(device.serial, for: project, kind: "android") }
+        state.installOnDevice(apk, device: device)
+    }
+
+    private func useTeam(_ team: String, _ buildFolder: URL) {
+        guard let project = item.project else { return }
+        ProjectPrefs.setTeamID(team, for: project)
+        if let device = pendingDevice { state.installOnIPhone(buildFolder: buildFolder, team: team, device: device) }
+    }
+
+    private var refreshButton: some View {
+        Button("Refresh Devices") { Task { await state.refreshDevices() } }
     }
 
     var body: some View {
@@ -71,47 +101,79 @@ private struct TaskRow: View {
                         }
                         Button("Open Path") { Mac.open(buildOutputFolder(output)) }.controlSize(.small)
                         if output.pathExtension == "apk" {
-                            Button("Install on Device") { state.installOnDevice(output) }.controlSize(.small)
+                            Menu("Run on Device") {
+                                ForEach(state.androidDevices) { d in
+                                    Button("\(d.model) (\(d.serial))") { install(output, on: d) }
+                                }
+                                if state.androidDevices.isEmpty { Text("No Android device connected") }
+                                Divider()
+                                refreshButton
+                            } primaryAction: {
+                                if let d = preferred(state.androidDevices, kind: "android") { install(output, on: d) }
+                                else { state.installOnDevice(output) } // explains that nothing is connected
+                            }
+                            .controlSize(.small).fixedSize()
                         } else if output.pathExtension == "aab" {
-                            Button("Install on Device") {}.controlSize(.small).disabled(true)
+                            Button("Run on Device") {}.controlSize(.small).disabled(true)
                                 .help("App Bundles (.aab) can't be installed directly. Build an APK profile such as Android_DEV to test on a device.")
                         }
                         if let xcode = Xcode.project(in: output) {
                             Button("Open in Xcode") { NSWorkspace.shared.open(xcode) }.controlSize(.small)
-                            Menu("Install on iPhone") {
-                                Button("Change Team ID…") { installOnIPhone(output, changeTeam: true) }
-                            } primaryAction: {
-                                installOnIPhone(output)
-                            }
-                            .controlSize(.small)
-                            .fixedSize()
-                            .alert("Apple Developer Team ID", isPresented: $askingTeam) {
-                                // Teams signed into Xcode, one click each; or type an ID.
-                                ForEach(IPhone.xcodeTeams) { team in
-                                    Button(team.name) {
-                                        guard let project = item.project else { return }
-                                        ProjectPrefs.setTeamID(team.id, for: project)
-                                        state.installOnIPhone(buildFolder: output, team: team.id)
+                            if item.simulatorSDK {
+                                Menu("Run on Simulator") {
+                                    ForEach(state.simulators) { sim in
+                                        Button("\(sim.name) — \(sim.runtime)\(sim.booted ? " (running)" : "")") { run(on: sim, output) }
                                     }
+                                    if state.simulators.isEmpty { Text("No simulators available") }
+                                    Divider()
+                                    refreshButton
+                                } primaryAction: {
+                                    if let sim = preferred(state.simulators, kind: "simulator") { run(on: sim, output) }
                                 }
-                                TextField("ABCDE12345", text: $teamText)
-                                Button("Install") {
-                                    let team = teamText.trimmingCharacters(in: .whitespaces).uppercased()
-                                    guard IPhone.isValidTeamID(team), let project = item.project else {
-                                        state.errorMessage = "A Team ID is 10 letters and digits, like ABCDE12345."
-                                        return
+                                .controlSize(.small).fixedSize()
+                            } else {
+                                Menu("Run on Device") {
+                                    ForEach(state.iosDevices) { d in
+                                        Button(d.name) { run(on: d, output) }
                                     }
-                                    ProjectPrefs.setTeamID(team, for: project)
-                                    state.installOnIPhone(buildFolder: output, team: team)
+                                    if state.iosDevices.isEmpty { Text("No iPhone or iPad connected") }
+                                    Divider()
+                                    Button("Change Team ID…") {
+                                        teamText = item.project.map(ProjectPrefs.teamID(for:)) ?? ""
+                                        pendingDevice = nil
+                                        askingTeam = true
+                                    }
+                                    refreshButton
+                                } primaryAction: {
+                                    if let d = preferred(state.iosDevices, kind: "ios") { run(on: d, output) }
+                                    else { state.errorMessage = "No iPhone or iPad connected. Plug one in, unlock it and tap Trust." }
                                 }
-                                Button("Cancel", role: .cancel) {}
-                            } message: {
-                                Text("Pick a team signed into Xcode, or type its ID (developer.apple.com → Membership). It's remembered for this project.")
+                                .controlSize(.small).fixedSize()
+                                .help("Sign with your Apple team, install and launch, without opening Xcode. Simulators need a Simulator build (Build sheet).")
+                                .alert("Apple Developer Team ID", isPresented: $askingTeam) {
+                                    // Teams signed into Xcode, one click each; or type an ID.
+                                    ForEach(IPhone.xcodeTeams) { team in
+                                        Button(team.name) { useTeam(team.id, output) }
+                                    }
+                                    TextField("ABCDE12345", text: $teamText)
+                                    Button(pendingDevice == nil ? "Save" : "Install") {
+                                        let team = teamText.trimmingCharacters(in: .whitespaces).uppercased()
+                                        guard IPhone.isValidTeamID(team) else {
+                                            state.errorMessage = "A Team ID is 10 letters and digits, like ABCDE12345."
+                                            return
+                                        }
+                                        useTeam(team, output)
+                                    }
+                                    Button("Cancel", role: .cancel) {}
+                                } message: {
+                                    Text("Pick a team signed into Xcode, or type its ID (developer.apple.com → Membership). It's remembered for this project.")
+                                }
                             }
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
+                .task(id: item.finishedAt) { if item.output != nil { await state.refreshDevices() } }
             }
             if item.state == .running {
                 if let pct = item.pct { ProgressView(value: min(pct, 100), total: 100) }

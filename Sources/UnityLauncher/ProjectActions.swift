@@ -149,6 +149,8 @@ struct BuildSheet: View {
     @State private var output = ""
     @State private var allowDirty = false
     @State private var creatingProfile = false
+    /// iOS: build with the Simulator SDK (via the launcher's build script) to run on simulators.
+    @State private var simulatorBuild = false
     @State private var signing: AndroidSigning?
     // Kept only while the sheet is open; never written anywhere.
     @State private var keystorePassword = ""
@@ -172,8 +174,9 @@ struct BuildSheet: View {
     private var isUnity6: Bool { (UnityVersion(row.project.version)?.major ?? 0) >= 6000 }
 
     private var defaultOutput: String {
-        target.defaultOutput(project: row.project.path, product: state.player(row).product,
-                             appBundle: profiles.first { $0.path == profile }?.appBundle ?? false)
+        if target == .iOS, simulatorBuild { return "\(row.project.path)/Builds/iOS-Simulator" }
+        return target.defaultOutput(project: row.project.path, product: state.player(row).product,
+                                    appBundle: profiles.first { $0.path == profile }?.appBundle ?? false)
     }
     /// Batch builds can't open a project the Editor already has open.
     private var isOpen: Bool { state.projects.first { $0.id == row.id }?.pid != nil }
@@ -222,6 +225,10 @@ struct BuildSheet: View {
                     }
                 }
             }
+            if target == .iOS, isUnity6, !profile.isEmpty {
+                Toggle("Simulator build", isOn: $simulatorBuild)
+                    .help("Builds with the Simulator SDK for this build only (the profile is left as is) so it runs on iOS simulators.")
+            }
             TextField("Output", text: $output)
             Toggle("Allow uncommitted changes", isOn: $allowDirty)
             if needsPassword, let s = signing {
@@ -250,6 +257,7 @@ struct BuildSheet: View {
                 profile = profiles.first { $0.target == target }?.path ?? ""
             }
         }
+        .onChange(of: simulatorBuild) { output = defaultOutput }
         .onChange(of: profile) {
             // A profile decides its platform, and for Android whether the output is an .aab.
             if let t = profiles.first(where: { $0.path == profile })?.target, t != target { target = t }
@@ -279,7 +287,20 @@ struct BuildSheet: View {
                         }
                     }
                     let what = profiles.first { $0.path == profile }?.profile ?? target.label
-                    if needsPassword {
+                    if target == .iOS, simulatorBuild, !profile.isEmpty {
+                        // Unity can only make a Simulator-SDK build through the launcher's build method.
+                        let project = URL(fileURLWithPath: row.project.path)
+                        if BuildScript.status(project: project) != .current {
+                            do { try BuildScript.install(project: project) } catch {
+                                state.errorMessage = "Couldn't add \(BuildScript.relativePath): \(error.localizedDescription)"
+                                return
+                            }
+                        }
+                        let item = state.runTask("Build \(row.project.title) (\(what), Simulator)",
+                                                 BuildScript.arguments(project: row.project.path, target: .iOS, output: output, allowDirty: allowDirty),
+                                                 environment: BuildScript.environment(profile: profile, iosSimulator: true))
+                        item.simulatorSDK = true
+                    } else if needsPassword {
                         // `unity build --profile` can't take keystore passwords; our build method can.
                         let project = URL(fileURLWithPath: row.project.path)
                         if BuildScript.status(project: project) != .current {

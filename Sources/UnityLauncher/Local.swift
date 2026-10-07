@@ -243,6 +243,15 @@ enum ProjectPrefs {
         else { UserDefaults.standard.set(id, forKey: "team:\(path)") }
     }
 
+    /// Device last used to run this project's builds, per kind ("ios", "simulator", "android").
+    static func lastDevice(for path: String, kind: String) -> String? {
+        UserDefaults.standard.string(forKey: "device:\(kind):\(path)")
+    }
+
+    static func setLastDevice(_ id: String, for path: String, kind: String) {
+        UserDefaults.standard.set(id, forKey: "device:\(kind):\(path)")
+    }
+
     static func setArgs(_ args: String, for path: String) {
         let trimmed = args.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty { UserDefaults.standard.removeObject(forKey: key(path)) }

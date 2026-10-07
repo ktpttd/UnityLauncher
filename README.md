@@ -70,7 +70,10 @@ UNITY_INTEGRATION=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swi
 **Tasks panel (⇧⌘T)**
 - Long operations (installs, builds, tests, upgrades, verify) stream progress and logs, and you can stop them.
 - Finished builds show time and output size, with Build Report, Open Path, Open in Xcode (iOS) and Install on Device (Android APK: installs on the first connected device and launches it).
-- Install on iPhone (iOS builds), without opening Xcode: `xcodebuild` signs the generated project with your Apple team, `devicectl` installs it on the connected iPhone and launches it. The first time, pick one of the teams signed into Xcode (or type a Team ID); it's remembered per project. The iPhone needs Developer Mode on.
+- Run on Device / Run on Simulator, without opening Xcode. Each button's menu lists what's connected; clicking the button itself reuses the device picked last time for that project.
+  - iPhone/iPad: `xcodebuild` signs the generated project (the scheme's Run configuration, as Xcode does) with your Apple team, `devicectl` installs and launches it. The first time, pick one of the teams signed into Xcode (or type a Team ID); it's remembered per project. The device needs Developer Mode on.
+  - Simulator: tick **Simulator build** in the Build sheet. The launcher's build script switches the profile to the Simulator SDK (arm64) for that build only, then the app is built, installed and launched on the simulator you pick. Native plugins shipped only for devices (some Firebase C++ and ad SDK versions) can't link for the simulator; the task names the library.
+  - Android: lists devices by model; installs the APK with adb and launches it.
 - Failed builds show the log lines that explain why (compile errors, signing, Gradle).
 - Tasks that take 20 seconds or more post a macOS notification when they finish.
 
