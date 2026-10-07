@@ -112,16 +112,16 @@ struct BuildProvenance: Decodable {
         return try decoder.decode(BuildProvenance.self, from: data)
     }
 
-    /// The provenance whose build wrote `logFile`. Output sits at Builds/<target> or Builds/<target>/<file>,
-    /// so the manifest is one or two levels under Builds.
+    /// The provenance whose build wrote `logFile`. `unity build` writes it beside the output: inside a
+    /// folder output as unity-build.provenance.json (iOS, WebGL), or as <output>.provenance.json next to
+    /// a file output (.apk, .aab, .app), so look one and two levels under Builds.
     static func find(project: URL, logFile: URL) -> BuildProvenance? {
         let fm = FileManager.default
         let builds = project.appendingPathComponent("Builds")
         let level1 = (try? fm.contentsOfDirectory(at: builds, includingPropertiesForKeys: nil)) ?? []
         let level2 = level1.flatMap { (try? fm.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil)) ?? [] }
         let wanted = logFile.resolvingSymlinksInPath().path
-        for dir in level1 + level2 {
-            let url = dir.appendingPathComponent("unity-build.provenance.json")
+        for url in level1 + level2 where url.lastPathComponent.hasSuffix("provenance.json") {
             guard let data = try? Data(contentsOf: url), let p = try? decode(data), let log = p.build.logFile else { continue }
             if project.appendingPathComponent(log).resolvingSymlinksInPath().path == wanted { return p }
         }

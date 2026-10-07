@@ -70,3 +70,12 @@ let provenanceJSON = """
     #expect(summary.contains("KB"))
     #expect(item.project == "/p") // lets the task open that project's Build Report
 }
+
+/// File outputs (Android .apk/.aab) get "<output name>.provenance.json" beside them, not unity-build.provenance.json.
+@Test func findsProvenanceNamedAfterAFileOutput() throws {
+    let project = try unityProject()
+    let json = provenanceJSON.replacingOccurrences(of: "Logs/build-iOS_INTERNAL-1791310084383.log", with: "Logs/build-Android_DEV-1.log")
+    try write(json, to: project.appendingPathComponent("Builds/Android/Eggoo - Roguelike Adventure.provenance.json"))
+    let log = project.appendingPathComponent("Logs/build-Android_DEV-1.log")
+    #expect(BuildProvenance.find(project: project, logFile: log) != nil)
+}
