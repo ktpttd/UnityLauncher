@@ -70,6 +70,7 @@ UNITY_INTEGRATION=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swi
 **Tasks panel (⇧⌘T)**
 - Long operations (installs, builds, tests, upgrades, verify) stream progress and logs, and you can stop them.
 - Finished builds show time and output size, with Build Report, Open Path, Open in Xcode (iOS) and Install on Device (Android APK: installs on the first connected device and launches it).
+- Install on iPhone (iOS builds), without opening Xcode: `xcodebuild` signs the generated project with your Apple team, `devicectl` installs it on the connected iPhone and launches it. The first time, pick one of the teams signed into Xcode (or type a Team ID); it's remembered per project. The iPhone needs Developer Mode on.
 - Failed builds show the log lines that explain why (compile errors, signing, Gradle).
 - Tasks that take 20 seconds or more post a macOS notification when they finish.
 

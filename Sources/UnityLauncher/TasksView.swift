@@ -25,6 +25,20 @@ private struct TaskRow: View {
     @Environment(AppState.self) private var state
     let item: TaskItem
     @State private var expanded = false
+    @State private var askingTeam = false
+    @State private var teamText = ""
+
+    /// Installs on an iPhone, asking for the project's Apple Team ID the first time.
+    private func installOnIPhone(_ buildFolder: URL, changeTeam: Bool = false) {
+        guard let project = item.project else { return }
+        let team = ProjectPrefs.teamID(for: project)
+        if changeTeam || !IPhone.isValidTeamID(team) {
+            teamText = team
+            askingTeam = true
+        } else {
+            state.installOnIPhone(buildFolder: buildFolder, team: team)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -63,6 +77,36 @@ private struct TaskRow: View {
                         }
                         if let xcode = Xcode.project(in: output) {
                             Button("Open in Xcode") { NSWorkspace.shared.open(xcode) }.controlSize(.small)
+                            Menu("Install on iPhone") {
+                                Button("Change Team ID…") { installOnIPhone(output, changeTeam: true) }
+                            } primaryAction: {
+                                installOnIPhone(output)
+                            }
+                            .controlSize(.small)
+                            .fixedSize()
+                            .alert("Apple Developer Team ID", isPresented: $askingTeam) {
+                                // Teams signed into Xcode, one click each; or type an ID.
+                                ForEach(IPhone.xcodeTeams) { team in
+                                    Button(team.name) {
+                                        guard let project = item.project else { return }
+                                        ProjectPrefs.setTeamID(team.id, for: project)
+                                        state.installOnIPhone(buildFolder: output, team: team.id)
+                                    }
+                                }
+                                TextField("ABCDE12345", text: $teamText)
+                                Button("Install") {
+                                    let team = teamText.trimmingCharacters(in: .whitespaces).uppercased()
+                                    guard IPhone.isValidTeamID(team), let project = item.project else {
+                                        state.errorMessage = "A Team ID is 10 letters and digits, like ABCDE12345."
+                                        return
+                                    }
+                                    ProjectPrefs.setTeamID(team, for: project)
+                                    state.installOnIPhone(buildFolder: output, team: team)
+                                }
+                                Button("Cancel", role: .cancel) {}
+                            } message: {
+                                Text("Pick a team signed into Xcode, or type its ID (developer.apple.com → Membership). It's remembered for this project.")
+                            }
                         }
                     }
                 }

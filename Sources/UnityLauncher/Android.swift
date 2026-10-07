@@ -32,11 +32,12 @@ enum Android {
 
 enum Shell {
     /// Runs a tool off the main thread; returns its exit code and combined stdout/stderr.
-    static func run(_ tool: URL, _ args: [String]) async -> (status: Int32, output: String) {
+    static func run(_ tool: URL, _ args: [String], environment: [String: String] = [:]) async -> (status: Int32, output: String) {
         await Task.detached {
             let p = Process()
             p.executableURL = tool
             p.arguments = args
+            p.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
             let pipe = Pipe()
             p.standardOutput = pipe
             p.standardError = pipe
@@ -67,6 +68,7 @@ extension AppState {
             } catch {
                 if item.state == .running { item.state = .failed(error.localizedDescription) }
             }
+            Notify.taskFinished(item)
         }
         return item
     }

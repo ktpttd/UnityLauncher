@@ -233,6 +233,16 @@ enum ProjectPrefs {
         UserDefaults.standard.string(forKey: key(path)) ?? ""
     }
 
+    /// Apple Developer Team ID used to sign this project's iOS builds for a device.
+    static func teamID(for path: String) -> String {
+        UserDefaults.standard.string(forKey: "team:\(path)") ?? ""
+    }
+
+    static func setTeamID(_ id: String, for path: String) {
+        if id.isEmpty { UserDefaults.standard.removeObject(forKey: "team:\(path)") }
+        else { UserDefaults.standard.set(id, forKey: "team:\(path)") }
+    }
+
     static func setArgs(_ args: String, for path: String) {
         let trimmed = args.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty { UserDefaults.standard.removeObject(forKey: key(path)) }
