@@ -151,6 +151,13 @@ struct BuildSheet: View {
     // Kept only while the sheet is open; never written anywhere.
     @State private var keystorePassword = ""
     @State private var aliasPassword = ""
+    /// Version fields as read from the profile (or Player Settings); edits are saved before building.
+    @State private var loadedVersion: BuildVersion?
+    @State private var version = BuildVersion(version: "", androidCode: "", iosBuild: "")
+
+    private var versionFile: URL {
+        BuildVersion.file(project: URL(fileURLWithPath: row.project.path), profile: profile.isEmpty ? nil : profile)
+    }
 
     private var needsPassword: Bool { target == .android && signing?.custom == true }
 
@@ -186,6 +193,28 @@ struct BuildSheet: View {
                 Text("\(target.label) builds need a Unity 6 Build Profile. This project uses \(row.project.version).")
                     .foregroundStyle(.secondary)
             }
+            if loadedVersion != nil {
+                Section("Version") {
+                    TextField("Version", text: $version.version)
+                    if target == .android {
+                        HStack {
+                            TextField("Version code", text: $version.androidCode)
+                            Button("+1") { version.androidCode = BuildVersion.bump(version.androidCode) }
+                        }
+                    }
+                    if target == .iOS {
+                        HStack {
+                            TextField("Build", text: $version.iosBuild)
+                            Button("+1") { version.iosBuild = BuildVersion.bump(version.iosBuild) }
+                        }
+                    }
+                    if let problem = version.problem {
+                        Text(problem).font(.caption).foregroundStyle(.red)
+                    } else if version != loadedVersion {
+                        Text("Saved to \(versionFile.lastPathComponent) when you press Build.").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
             TextField("Output", text: $output)
             Toggle("Allow uncommitted changes", isOn: $allowDirty)
             if needsPassword, let s = signing {
@@ -219,6 +248,11 @@ struct BuildSheet: View {
             if let t = profiles.first(where: { $0.path == profile })?.target, t != target { target = t }
         }
         .task { await loadProfiles() }
+        .task(id: profile) {
+            let file = versionFile
+            loadedVersion = await Task.detached { (try? String(contentsOf: file, encoding: .utf8)).flatMap(BuildVersion.read) }.value
+            if let loadedVersion { version = loadedVersion }
+        }
         .task(id: "\(target.rawValue)|\(profile)") {
             let project = URL(fileURLWithPath: row.project.path), chosen = profile.isEmpty ? nil : profile
             signing = target == .android ? await Task.detached { Local.androidSigning(project: project, profile: chosen) }.value : nil
@@ -227,6 +261,15 @@ struct BuildSheet: View {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Build") {
+                    if let loadedVersion, version != loadedVersion {
+                        do {
+                            let text = try String(contentsOf: versionFile, encoding: .utf8)
+                            try version.write(into: text).write(to: versionFile, atomically: true, encoding: .utf8)
+                        } catch {
+                            state.errorMessage = "Couldn't save the version to \(versionFile.lastPathComponent): \(error.localizedDescription)"
+                            return
+                        }
+                    }
                     let what = profiles.first { $0.path == profile }?.profile ?? target.label
                     if needsPassword {
                         // `unity build --profile` can't take keystore passwords; our build method can.
@@ -247,7 +290,8 @@ struct BuildSheet: View {
                     }
                     dismiss()
                 }
-                .disabled(output.isEmpty || isOpen || (target.needsProfile && profile.isEmpty) || (needsPassword && (keystorePassword.isEmpty || profile.isEmpty)))
+                .disabled(output.isEmpty || isOpen || (target.needsProfile && profile.isEmpty) || (needsPassword && (keystorePassword.isEmpty || profile.isEmpty))
+                           || (loadedVersion != nil && version.problem != nil))
             }
         }
     }

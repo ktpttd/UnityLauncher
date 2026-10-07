@@ -51,6 +51,7 @@ UNITY_INTEGRATION=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swi
   - Editor.log, Player.log, Persistent Data, the project's Logs folder
   - Disk usage, Verify (meta/GUID/merge-marker checks), Clean Library
   - Pin/Unpin, Kill Unity (⌥Q), Remove from list
+- The Build sheet edits Version, Android version code and iOS build number (with +1 buttons). They're read from the chosen Build Profile's override, or Player Settings without a profile, and saved there when you press Build.
 - Android release builds: the Build sheet reads the keystore and alias from the chosen Build Profile (or Player Settings) and asks for the passwords. Passwords are passed to `unity build` for that build only and never saved.
 - New Project (⌘N) with Unity version and template. Add a project with + or by dragging folders onto the list.
 
