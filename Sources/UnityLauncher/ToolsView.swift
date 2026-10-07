@@ -1,42 +1,37 @@
 import SwiftUI
 
-/// Folders and utilities that don't belong to one project (ULP's Tools menu).
+/// Folders and utilities that don't belong to one project (ULP's Tools bar).
 struct ToolsView: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
-        Form {
-            Section("Folders") {
-                ForEach(Local.Folder.allCases) { folder in
-                    LabeledContent(folder.rawValue) {
-                        HStack {
-                            Text(folder.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                                .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                            Button("Open") { Mac.open(folder.url) }.controlSize(.small)
-                        }
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
+            GridRow {
+                Text("Folders").foregroundStyle(.secondary)
+                HStack {
+                    ForEach(Local.Folder.allCases) { folder in
+                        Button(folder.rawValue) { Mac.open(folder.url) }
+                            .help(folder.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
                     }
                 }
             }
-            Section("Editors") {
-                LabeledContent("Register an editor installed outside Unity Hub") {
+            GridRow {
+                Text("Tools").foregroundStyle(.secondary)
+                HStack {
                     Button("Locate Unity Editor…") {
                         if let url = Mac.chooseApp(message: "Choose a Unity.app to register") {
                             Task { await state.cliAction(["editors", "add", url.path]) }
                         }
                     }
-                }
-            }
-            Section("Android") {
-                LabeledContent("Unity log from a connected device") {
+                    .help("Register an editor installed outside Unity Hub")
                     Button("ADB Logcat") { state.adbLogcat() }
-                }
-            }
-            Section("Diagnostics") {
-                LabeledContent("Check the Unity CLI, sign-in and installed editors") {
+                        .help("Unity log from a connected Android device")
                     Button("Unity Doctor") { Task { await state.doctor() } }
+                        .help("Check the Unity CLI, sign-in and installed editors")
                 }
             }
         }
-        .formStyle(.grouped)
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
