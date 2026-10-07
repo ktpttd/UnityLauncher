@@ -108,3 +108,9 @@ The app only opens folders that contain `ProjectSettings/ProjectVersion.txt`.
 | `LiveEditor.swift` | Live tab model: `unity status` / `unity command` |
 | `BuildReport.swift` | Parses Unity's Build Report from build logs |
 | `*View.swift`, `*Sheet` | SwiftUI views |
+
+## Credits
+
+This app exists because of [UnityLauncherPro](https://github.com/unitycoder/UnityLauncherPro) by [unitycoder](https://github.com/unitycoder) (MIT license). Its feature set was the blueprint for this macOS version: recent projects with the right Unity version, per-project launch arguments, git branch and platform columns, editor and release lists, upgrade suggestions, log folders, Kill Unity, ADB logcat, the `-projectPath` command line, and the Build Report. The Build Report parser follows the Editor.log format UnityLauncherPro reads. The code here is a separate Swift implementation; nothing was copied from UnityLauncherPro.
+
+If you're on Windows, use UnityLauncherPro.
