@@ -64,6 +64,9 @@ private struct TaskRow: View {
             }
             if case .failed(let message) = item.state {
                 Text(message).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+                ForEach(item.failureDetails, id: \.self) { line in
+                    Text(line).font(.system(.caption, design: .monospaced)).foregroundStyle(.red).textSelection(.enabled)
+                }
             }
             DisclosureGroup("Log (\(item.log.count))", isExpanded: $expanded) {
                 ScrollView {

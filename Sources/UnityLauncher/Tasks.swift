@@ -21,6 +21,8 @@ final class TaskItem: Identifiable {
     var output: URL?
     /// Project a build task built, for its Build Report.
     var project: String?
+    /// Lines from the build log explaining a failure.
+    var failureDetails: [String] = []
     @ObservationIgnored var task: Task<Void, Never>?
 
     init(title: String) { self.title = title }
@@ -66,6 +68,14 @@ extension AppState {
                 if item.state == .running { item.state = .succeeded }
             } catch {
                 if item.state == .running { item.state = .failed(error.localizedDescription) }
+            }
+            if case .failed = item.state, args.first == "build", args.count > 1 {
+                let project = URL(fileURLWithPath: args[1])
+                item.failureDetails = await Task.detached {
+                    BuildErrors.latestLog(project: project)
+                        .flatMap { try? Data(contentsOf: $0) }
+                        .map { BuildErrors.find(in: String(decoding: $0, as: UTF8.self)) } ?? []
+                }.value
             }
             if item.state == .succeeded, args.first == "build",
                let i = args.firstIndex(of: "--output-path"), i + 1 < args.count {
