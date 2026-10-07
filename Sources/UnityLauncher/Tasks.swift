@@ -84,9 +84,11 @@ func formatDuration(_ seconds: TimeInterval) -> String {
     return h > 0 ? "\(h)h \(m)m \(sec)s" : m > 0 ? "\(m)m \(sec)s" : "\(sec)s"
 }
 
+/// Folder holding a build: the output itself if it's a plain folder (iOS, WebGL), else its parent
+/// (.apk, .exe, and .app bundles, which would launch if opened).
 func buildOutputFolder(_ output: URL) -> URL {
-    (try? output.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
-        ? output : output.deletingLastPathComponent()
+    let v = try? output.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
+    return v?.isDirectory == true && v?.isPackage != true ? output : output.deletingLastPathComponent()
 }
 
 func formatBytes(_ bytes: Int64) -> String {

@@ -30,13 +30,17 @@ struct BuildReport: Equatable {
         var reports: [BuildReport] = []
         var current: BuildReport?
         var mode = Mode.none
+        // "Build completed ... (N ms)" follows its own report; a build that printed no report must
+        // not stamp its time onto an older one.
+        var reportJustClosed = false
         for raw in log.split(separator: "\n", omittingEmptySubsequences: false) {
             let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            if line.hasPrefix("Build completed"),
-               let match = line.firstMatch(of: /\((\d+) ms\)$/),
-               let milliseconds = Double(match.1), !reports.isEmpty {
-                reports[reports.count - 1].stats.append(Stat(
-                    category: "Build time", size: formatDuration(milliseconds / 1000), percent: nil))
+            if line.hasPrefix("Build completed") {
+                if reportJustClosed, let match = line.firstMatch(of: /\((\d+) ms\)$/), let milliseconds = Double(match.1) {
+                    reports[reports.count - 1].stats.append(Stat(
+                        category: "Build time", size: formatDuration(milliseconds / 1000), percent: nil))
+                }
+                reportJustClosed = false
             }
             if line.hasPrefix("Uncompressed usage by category") {
                 current = BuildReport(); mode = .stats; continue
@@ -45,7 +49,7 @@ struct BuildReport: Equatable {
                 mode = current == nil ? .none : .items; continue
             }
             if mode == .items, line.hasPrefix("----------"), let c = current {
-                reports.append(c); current = nil; mode = .none; continue
+                reports.append(c); current = nil; mode = .none; reportJustClosed = true; continue
             }
             switch mode {
             case .stats:

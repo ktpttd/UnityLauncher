@@ -158,3 +158,11 @@ func profileAsset(name: String, target: Int) -> String {
     """, to: project.appendingPathComponent("Assets/Settings/BuildProfiles/iOS_DEV.asset"))
     #expect(Local.buildProfiles(in: project).map(\.profile) == ["iOS_DEV"])
 }
+
+/// A macOS build output is an .app bundle (a directory); "Open Path" must open its folder, not launch the game.
+@Test func buildOutputFolderTreatsAppBundleAsFile() throws {
+    let folder = try tempDir().appendingPathComponent("Builds/StandaloneOSX", isDirectory: true)
+    let app = folder.appendingPathComponent("Game.app", isDirectory: true)
+    try FileManager.default.createDirectory(at: app.appendingPathComponent("Contents"), withIntermediateDirectories: true)
+    #expect(buildOutputFolder(app).standardizedFileURL == folder.standardizedFileURL)
+}

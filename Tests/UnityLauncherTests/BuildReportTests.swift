@@ -87,3 +87,13 @@ Used Assets and files from the Resources folder, sorted by uncompressed size:
     #expect(report.stats.last == .init(category: "Complete build size", size: "965.0 mb", percent: nil))
     #expect(report.items.first == .init(size: "1.2 mb", percent: "0.1%", path: "Built-in Texture2D: Splash Screen Unity Logo"))
 }
+
+/// A later build that printed no report must not stamp its time onto an older report.
+@Test func buildTimeOnlyAttachesToTheReportJustClosed() {
+    // First build: report + its completion line. Second build: completion line only (no report printed).
+    let firstBuild = String(sampleLog[..<sampleLog.range(of: "more noise")!.lowerBound])
+    let log = firstBuild + "Build completed with a result of 'Succeeded' in 5 seconds (5000 ms)\n"
+    let reports = BuildReport.parseAll(log)
+    #expect(reports.count == 1)
+    #expect(reports[0].stats.filter { $0.category == "Build time" }.map(\.size) == ["12s"])
+}
