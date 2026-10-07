@@ -55,6 +55,9 @@ private struct TaskRow: View {
                             Button("Build Report") { state.buildReportFor = row }.controlSize(.small)
                         }
                         Button("Open Path") { Mac.open(buildOutputFolder(output)) }.controlSize(.small)
+                        if let xcode = Xcode.project(in: output) {
+                            Button("Open in Xcode") { NSWorkspace.shared.open(xcode) }.controlSize(.small)
+                        }
                     }
                 }
             }

@@ -94,3 +94,12 @@ import Testing
     #expect(bad?.title == "Build Capy_2D (Android_INTERNAL) failed")
     #expect(bad?.body == "UnityException: Can not sign the application")
 }
+
+@Test func findsXcodeWorkspaceBeforeProject() throws {
+    let ios = try tempDir().appendingPathComponent("Builds/iOS")
+    try FileManager.default.createDirectory(at: ios.appendingPathComponent("Unity-iPhone.xcodeproj"), withIntermediateDirectories: true)
+    #expect(Xcode.project(in: ios)?.lastPathComponent == "Unity-iPhone.xcodeproj")
+    try FileManager.default.createDirectory(at: ios.appendingPathComponent("Unity-iPhone.xcworkspace"), withIntermediateDirectories: true)
+    #expect(Xcode.project(in: ios)?.lastPathComponent == "Unity-iPhone.xcworkspace")
+    #expect(Xcode.project(in: try tempDir()) == nil)
+}

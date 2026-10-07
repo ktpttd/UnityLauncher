@@ -36,3 +36,11 @@ enum BuildErrors {
             .max { modified($0) < modified($1) }
     }
 }
+
+enum Xcode {
+    /// The Xcode project of an iOS build folder; the workspace when CocoaPods created one.
+    static func project(in folder: URL) -> URL? {
+        let items = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        return items.first { $0.pathExtension == "xcworkspace" } ?? items.first { $0.pathExtension == "xcodeproj" }
+    }
+}
