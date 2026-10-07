@@ -85,6 +85,7 @@ extension AppState {
                 item.project = args[1]
                 item.summary = "Output: \(url.lastPathComponent)" + (size.map { " · " + formatBytes($0) } ?? "")
             }
+            Notify.taskFinished(item)
             if refreshAfter { await refresh() }
         }
         return item

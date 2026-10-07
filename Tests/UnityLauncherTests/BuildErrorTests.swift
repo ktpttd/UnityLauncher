@@ -74,3 +74,23 @@ import Testing
     #expect(item.state == .failed("Build failed"))
     #expect(item.failureDetails == ["UnityException: Can not sign the application", "Unable to sign the application; please provide passwords!"])
 }
+
+@MainActor @Test func notificationOnlyForLongTasks() {
+    let quick = TaskItem(title: "Verify")
+    quick.state = .succeeded
+    #expect(quick.notification(finishedAt: quick.startedAt.addingTimeInterval(5)) == nil)
+
+    let build = TaskItem(title: "Build Capy_2D (iOS_DEV)")
+    build.summary = "Output: iOS · 3.66 GB"
+    build.state = .succeeded
+    let ok = build.notification(finishedAt: build.startedAt.addingTimeInterval(134))
+    #expect(ok?.title == "Build Capy_2D (iOS_DEV) succeeded")
+    #expect(ok?.body == "Done in 2m 14s · Output: iOS · 3.66 GB")
+
+    let failed = TaskItem(title: "Build Capy_2D (Android_INTERNAL)")
+    failed.state = .failed("Build failed")
+    failed.failureDetails = ["UnityException: Can not sign the application"]
+    let bad = failed.notification(finishedAt: failed.startedAt.addingTimeInterval(60))
+    #expect(bad?.title == "Build Capy_2D (Android_INTERNAL) failed")
+    #expect(bad?.body == "UnityException: Can not sign the application")
+}
