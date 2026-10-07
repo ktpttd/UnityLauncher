@@ -36,6 +36,7 @@ enum BuildScript {
     // Builds a Build Profile in batch mode and applies Android keystore passwords from environment
     // variables: Unity never saves those passwords and `unity build --profile` can't pass them.
     // Run as: unity build <project> --target Android --execute-method UnityLauncherBuild.Build --output-path <file>
+    #nullable enable
     using System;
     using UnityEditor;
     using UnityEditor.Build.Profile;
@@ -45,18 +46,18 @@ enum BuildScript {
     {
         public static void Build()
         {
-            string profilePath = Environment.GetEnvironmentVariable("UNITY_LAUNCHER_PROFILE");
-            string output = Argument("-buildOutput");
-            BuildProfile profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(profilePath);
+            string? profilePath = Environment.GetEnvironmentVariable("UNITY_LAUNCHER_PROFILE");
+            string? output = Argument("-buildOutput");
+            BuildProfile? profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(profilePath);
             if (profile == null) throw new Exception("Unity Launcher: Build Profile not found: " + profilePath);
             if (string.IsNullOrEmpty(output)) throw new Exception("Unity Launcher: missing -buildOutput");
 
             // Keystore passwords belong to the active player settings, so activate the profile first.
             BuildProfile.SetActiveBuildProfile(profile);
-            string keystorePass = Environment.GetEnvironmentVariable("UNITY_LAUNCHER_KEYSTORE_PASS");
+            string? keystorePass = Environment.GetEnvironmentVariable("UNITY_LAUNCHER_KEYSTORE_PASS");
             if (!string.IsNullOrEmpty(keystorePass))
             {
-                string aliasPass = Environment.GetEnvironmentVariable("UNITY_LAUNCHER_KEYALIAS_PASS");
+                string? aliasPass = Environment.GetEnvironmentVariable("UNITY_LAUNCHER_KEYALIAS_PASS");
                 PlayerSettings.Android.keystorePass = keystorePass;
                 PlayerSettings.Android.keyaliasPass = string.IsNullOrEmpty(aliasPass) ? keystorePass : aliasPass;
             }
@@ -71,7 +72,7 @@ enum BuildScript {
                 throw new Exception("Unity Launcher: build " + report.summary.result);
         }
 
-        static string Argument(string name)
+        static string? Argument(string name)
         {
             string[] args = Environment.GetCommandLineArgs();
             int i = Array.IndexOf(args, name);
