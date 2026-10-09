@@ -73,13 +73,18 @@ extension AppState {
             } catch {
                 if item.state == .running { item.state = .failed(error.localizedDescription) }
             }
-            if case .failed = item.state, args.first == "build", args.count > 1 {
+            if args.first == "build", args.count > 1 {
                 let project = URL(fileURLWithPath: args[1])
-                item.failureDetails = await Task.detached {
-                    BuildErrors.latestLog(project: project)
-                        .flatMap { try? Data(contentsOf: $0) }
-                        .map { BuildErrors.find(in: String(decoding: $0, as: UTF8.self)) } ?? []
+                // Unity exits 0 when player scripts don't compile, so the CLI reports success with no build.
+                let checkSuccess = item.state == .succeeded && args.contains("--output-path")
+                let errors = await Task.detached { () -> [String] in
+                    guard let log = BuildErrors.latestLog(project: project)
+                        .flatMap({ try? Data(contentsOf: $0) }).map({ String(decoding: $0, as: UTF8.self) }),
+                          !checkSuccess || !log.contains("Build Finished, Result: Success") else { return [] }
+                    return BuildErrors.find(in: log)
                 }.value
+                if checkSuccess, !errors.isEmpty { item.state = .failed("Unity exited without building the player") }
+                if case .failed = item.state { item.failureDetails = errors }
             }
             if item.state == .succeeded, args.first == "build",
                let i = args.firstIndex(of: "--output-path"), i + 1 < args.count {

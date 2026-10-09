@@ -75,6 +75,27 @@ import Testing
     #expect(item.failureDetails == ["UnityException: Can not sign the application", "Unable to sign the application; please provide passwords!"])
 }
 
+@MainActor @Test func buildWithoutPlayerIsAFailureDespiteCLISuccess() async throws {
+    // Unity exits 0 when player scripts don't compile (e.g. UnityEditor code outside an Editor folder),
+    // and the CLI then reports success with an empty output.
+    let project = try unityProject()
+    let log = project.appendingPathComponent("Logs/build-iOS_INTERNAL-1.log")
+    try write("Assets/7.Editor/Tool.cs(17,10): error CS0246: The type or namespace name 'MenuItem' could not be found\nExiting batchmode successfully now!\n",
+              to: log)
+    let state = AppState(cli: try fakeCLI(#"echo '{"type":"result","success":true,"errors":[]}'"#))
+    let args = ["build", project.path, "--output-path", project.appendingPathComponent("Builds/iOS").path, "--profile", "iOS_INTERNAL"]
+    let item = state.runTask("Build", args, refreshAfter: false)
+    await item.task?.value
+    #expect(item.state == .failed("Unity exited without building the player"))
+    #expect(item.failureDetails == ["Assets/7.Editor/Tool.cs(17,10): error CS0246: The type or namespace name 'MenuItem' could not be found"])
+    #expect(item.summary == nil)
+
+    try write("Build Finished, Result: Success.\nExiting batchmode successfully now!\n", to: log)
+    let ok = state.runTask("Build", args, refreshAfter: false)
+    await ok.task?.value
+    #expect(ok.state == .succeeded)
+}
+
 @MainActor @Test func notificationOnlyForLongTasks() {
     let quick = TaskItem(title: "Verify")
     quick.state = .succeeded
